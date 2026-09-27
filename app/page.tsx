@@ -89,14 +89,21 @@ export default function Home() {
     );
   }
 
-  const firstName = session.user.user_metadata.full_name?.split(" ")[0]
-    ?? session.user.user_metadata.name?.split(" ")[0];
+  const fullName = session.user.user_metadata.full_name
+    ?? session.user.user_metadata.name
+    ?? "AZO team member";
+  const firstName = fullName.split(" ")[0];
+  const avatarUrl = session.user.user_metadata.avatar_url ?? session.user.user_metadata.picture;
 
   return (
     <main className="workspace-shell">
       <header className="topbar">
         <a className="wordmark" href="./" aria-label="AZO Studio home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>AZO STUDIO</i></span></a>
-        <div className="account"><span className="avatar">{session.user.email?.[0]?.toUpperCase() ?? "A"}</span><span className="account-email">{session.user.email}</span><button className="sign-out" onClick={signOut}>Sign out</button></div>
+        <div className="account">
+          {avatarUrl ? <img className="avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span className="avatar">{fullName[0]?.toUpperCase() ?? "A"}</span>}
+          <span className="account-details"><span className="account-name" title={fullName}>{fullName}</span><span className="account-email" title={session.user.email ?? undefined}>{session.user.email}</span></span>
+          <button className="sign-out" onClick={signOut}>Sign out</button>
+        </div>
       </header>
       <section className="welcome">
         <p className="eyebrow">AZO STUDIO · YOUR WORKSPACE</p>
