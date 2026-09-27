@@ -1,12 +1,25 @@
 # Active Zone Studio
 
-A private workspace starting with a photo albums landing page. Google sign-in is restricted on the server to verified Google Workspace accounts whose hosted domain and email domain are `activezoneoutdoor.cy`.
+A static Google sign-in landing page for the Active Zone Studio. The app can be hosted on GitHub Pages; Supabase Auth handles Google sign-in and session management.
 
-## Local setup
+## Supabase setup
 
-1. Create a Google OAuth 2.0 web client in the Active Zone Google Cloud project.
-2. Add `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
-3. Copy `.env.example` to `.env.local` and fill in the OAuth client ID, client secret, and a long random `NEXTAUTH_SECRET`. Keep `.env.local` private; only `.env.example` belongs in this public repository.
-4. Install dependencies with `npm install` and start the app with `npm run dev`.
+1. Create a Supabase project and enable Google under **Authentication → Providers**. Create a Google OAuth web client and put its client ID and secret in Supabase's provider settings. Do not put the Google client secret or a Supabase service-role key in this repository.
+2. Add Supabase's Google callback URL (`https://<project-ref>.supabase.co/auth/v1/callback`) to the Google OAuth client's authorized redirect URIs.
+3. In Supabase **Authentication → URL Configuration**, set the site URL and allow these redirect URLs:
+   - `http://localhost:3000/`
+   - `https://activezoneoutdoor.github.io/studio/`
+4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
 
-The Google OAuth consent configuration should be internal to the Active Zone Workspace. Production deployment must set its own `NEXTAUTH_URL`, OAuth client credentials, and `NEXTAUTH_SECRET` through the hosting provider's secret manager. Never commit real credentials.
+5. Run `supabase/migrations/20260927000000_restrict_workspace_signups.sql` in the Supabase SQL Editor. Then enable **Authentication → Hooks → Before User Created** and select `public.enforce_activezone_workspace_signup`. This hook rejects account creation unless the account is a Google identity with the approved domain.
+
+The app requests Google with `hd=activezoneoutdoor.cy` to guide account selection, then checks the returned account email before showing the studio. Supabase Auth's Before User Created hook enforces the domain for new accounts. Before storing private albums, also apply Row Level Security policies to the tables and storage objects; Supabase recommends RLS as the data authorization boundary for browser clients. Do not rely on the page's client-side check to protect data.
+
+## GitHub Pages deployment
+
+The workflow in `.github/workflows/pages.yml` builds the static export and deploys it to Pages on pushes to `main`. In the repository's **Settings → Secrets and variables → Actions → Variables**, add:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+The workflow sets the `/studio` base path for this repository. Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. Add the same Pages URL to Supabase's allowed redirect URLs.
