@@ -60,30 +60,30 @@ export default function Home() {
     if (supabase) await supabase.auth.signOut();
   }
 
-  if (checking) return <main className="loading-shell"><span className="brand-mark">AZ</span><p>Opening your studio…</p></main>;
+  if (checking) return <main className="loading-shell"><span className="brand-mark">AZO</span><p>Opening AZO Studio…</p></main>;
 
   if (!session) {
     return (
       <main className="login-shell">
         <section className="login-card">
-          <div className="brand-mark" aria-hidden="true">AZ</div>
+          <div className="brand-mark" aria-hidden="true">AZO</div>
           <p className="eyebrow">ACTIVE ZONE OUTDOOR</p>
-          <h1>Your work,<br />beautifully in focus.</h1>
-          <p className="intro">A private studio for the moments, places, and people behind Active Zone Outdoor.</p>
+          <h1>Your albums,<br />thoughtfully curated.</h1>
+          <p className="intro">Bring contributor albums from Google Drive and Google Photos together, then choose what appears in the public Active Zone Outdoor gallery.</p>
           <button className="google-button" onClick={signIn} disabled={!supabase}>
             <GoogleMark /> Continue with Google <span aria-hidden="true">→</span>
           </button>
           {!supabase && <p className="config-note">Add your Supabase project URL and publishable key to enable sign-in.</p>}
           {notice && <p className="auth-notice" role="status">{notice}</p>}
-          <p className="access-note"><span className="lock-icon">●</span> Sign in with your Active Zone Google Workspace account</p>
+          <p className="access-note"><span className="lock-icon">●</span> Sign in with your Active Zone Outdoor Google Workspace account</p>
           <p className="domain-note">Access is limited to <strong>@{allowedDomain}</strong></p>
         </section>
         <aside className="visual-panel" aria-label="Studio introduction">
           <div className="sun"></div>
           <div className="mountain mountain-back"></div>
           <div className="mountain mountain-front"></div>
-          <div className="photo-caption"><span>01 / YOUR STUDIO</span><b>Made for the outdoors.</b></div>
-          <div className="image-credit">ACTIVE ZONE · CYPRUS</div>
+          <div className="photo-caption"><span>AZO STUDIO · ALBUM MANAGEMENT</span><b>Stories made to be shared.</b></div>
+          <div className="image-credit">ACTIVE ZONE OUTDOOR · CYPRUS</div>
         </aside>
       </main>
     );
@@ -95,20 +95,22 @@ export default function Home() {
   return (
     <main className="workspace-shell">
       <header className="topbar">
-        <a className="wordmark" href="./" aria-label="Active Zone Studio home"><span className="brand-mark small">AZ</span><span>ACTIVE ZONE <i>STUDIO</i></span></a>
+        <a className="wordmark" href="./" aria-label="AZO Studio home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>AZO STUDIO</i></span></a>
         <div className="account"><span className="avatar">{session.user.email?.[0]?.toUpperCase() ?? "A"}</span><span className="account-email">{session.user.email}</span><button className="sign-out" onClick={signOut}>Sign out</button></div>
       </header>
       <section className="welcome">
-        <p className="eyebrow">YOUR PRIVATE WORKSPACE</p>
+        <p className="eyebrow">AZO STUDIO · YOUR WORKSPACE</p>
         <h1>Good to have you here{firstName ? `, ${firstName}` : ""}.</h1>
-        <p>Everything you create for Active Zone, in one place.</p>
+        <p>Manage contributor albums from Google Drive and Google Photos, then curate the public Active Zone Outdoor gallery.</p>
       </section>
       <section className="album-section">
-        <div className="section-heading"><div><p className="eyebrow">START HERE</p><h2>Your studio</h2></div><span className="coming-label">01 COLLECTION</span></div>
-        <article className="album-card">
-          <div className="album-art"><div className="album-sun"></div><div className="album-ridge"></div><span>FIELD NOTES · CYPRUS</span></div>
-          <div className="album-info"><div><p className="eyebrow">PHOTO LIBRARY</p><h3>Photo albums</h3><p>Your visual library for trips, products, and outdoor stories.</p></div><span className="soon">COMING SOON</span></div>
-        </article>
+        <div className="section-heading"><div><p className="eyebrow">ALBUM WORKFLOW</p><h2>Manage your sources</h2></div><span className="coming-label">AZO STUDIO</span></div>
+        <p className="source-intro">Photos stay in Google. AZO Studio will organize the albums people contribute and control which collections appear in the public gallery.</p>
+        <div className="source-grid">
+          <article className="source-card"><div className="source-icon drive-icon">D</div><div className="source-copy"><p className="eyebrow">CONTRIBUTOR LIBRARY</p><h3>Google Drive</h3><p>Review shared folders and albums contributed by the team.</p></div><span className="soon">CONNECT SOON</span></article>
+          <article className="source-card"><div className="source-icon photos-icon">◉</div><div className="source-copy"><p className="eyebrow">CURATED COLLECTIONS</p><h3>Google Photos</h3><p>Choose the albums to feature in the public gallery.</p></div><span className="soon">CONNECT SOON</span></article>
+        </div>
+        <div className="public-gallery-note"><span className="gallery-dot"></span><div><p className="eyebrow">PUBLIC VIEW</p><strong>Active Zone Outdoor photo albums</strong><p>Published albums will appear here for everyone to browse.</p></div><span className="soon">NOT CONNECTED</span></div>
       </section>
       <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>
     </main>

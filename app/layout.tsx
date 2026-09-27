@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./styles.css";
 
 export const metadata: Metadata = {
-  title: "Active Zone Studio",
-  description: "A private home for Active Zone Outdoor photo albums.",
+  title: "AZO Studio | Active Zone Outdoor",
+  description: "Manage contributor albums from Google Drive and Google Photos for the public Active Zone Outdoor gallery.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

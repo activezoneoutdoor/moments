@@ -1,4 +1,4 @@
-create or replace function public.enforce_activezone_workspace_signup(event jsonb)
+create or replace function public.enforce_azo_workspace_signup(event jsonb)
 returns jsonb
 language plpgsql
 set search_path = ''
@@ -14,12 +14,12 @@ begin
   return jsonb_build_object(
     'error', jsonb_build_object(
       'http_code', 403,
-      'message', 'Use your Active Zone Google Workspace account to sign in.'
+      'message', 'Use your Active Zone Outdoor Google Workspace account to sign in.'
     )
   );
 end;
 $$;
 
 grant usage on schema public to supabase_auth_admin;
-grant execute on function public.enforce_activezone_workspace_signup(jsonb) to supabase_auth_admin;
-revoke execute on function public.enforce_activezone_workspace_signup(jsonb) from public, anon, authenticated;
+grant execute on function public.enforce_azo_workspace_signup(jsonb) to supabase_auth_admin;
+revoke execute on function public.enforce_azo_workspace_signup(jsonb) from public, anon, authenticated;
