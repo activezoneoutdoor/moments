@@ -24,9 +24,17 @@ The app requests Google with `hd=activezoneoutdoor.cy` to guide account selectio
 
 ## GitHub Pages deployment
 
-The workflow in `.github/workflows/pages.yml` builds the static export and deploys it to Pages on pushes to `main`. In the repository's **Settings → Secrets and variables → Actions → Variables**, add:
+The workflow in `.github/workflows/pages.yml` builds and deploys this repository to `https://activezoneoutdoor.github.io/studio/` whenever a change is pushed to `main`.
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+1. **Finish Supabase setup first.** In the Supabase project, enable Google sign-in, apply the workspace signup migration and hook above, and set the production Site URL to `https://activezoneoutdoor.github.io/studio/`.
+2. **Allow the app redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://activezoneoutdoor.github.io/studio/` (keep `http://localhost:3000/` there too if you run locally).
+3. **Add the public Supabase browser settings to GitHub.** Open the repository on GitHub, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. Add both:
+   - Name: `NEXT_PUBLIC_SUPABASE_URL` · Value: the Supabase project's URL.
+   - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY` · Value: the project's publishable key (or legacy anon key).
 
-The workflow sets the `/studio` base path for this repository. Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. Add the same Pages URL to Supabase's allowed redirect URLs.
+   These two values are included in the public website bundle, so they are not secrets. Keep the Google OAuth client secret in Supabase's Google provider settings. Never put a Supabase service-role key in GitHub variables or the app.
+4. **Enable Pages deployment.** In GitHub, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**.
+5. **Commit and push to `main`.** Make sure the commit includes `package-lock.json` and `.github/workflows/pages.yml`. Pushing to `main` starts the deploy automatically.
+6. **Check the result.** In the repository, open **Actions**, select the latest **Deploy to GitHub Pages** run, and wait for both build and deploy jobs to finish successfully. The site will be at [https://activezoneoutdoor.github.io/studio/](https://activezoneoutdoor.github.io/studio/).
+
+The workflow sets the `/studio` base path automatically; no manual build command or upload is needed for GitHub Pages.
