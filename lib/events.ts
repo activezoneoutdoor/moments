@@ -75,6 +75,13 @@ export function slugify(...parts: string[]): string {
 const dateFormat = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Nicosia" });
 const timeFormat = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Nicosia" });
 
+const yearFormat = new Intl.DateTimeFormat("en-GB", { year: "numeric", timeZone: "Asia/Nicosia" });
+
+/** The event's year in Cyprus time, e.g. "2026". */
+export function eventYear(event: Pick<AzoEvent, "starts_at">): string {
+  return yearFormat.format(new Date(event.starts_at));
+}
+
 export function formatEventDate(event: Pick<AzoEvent, "starts_at" | "ends_at">): string {
   const start = new Date(event.starts_at);
   const text = `${dateFormat.format(start)} · ${timeFormat.format(start)}`;

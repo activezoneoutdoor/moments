@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { eventCoverUrl } from "@/lib/covers";
 import { useStaffThumbnail } from "@/lib/thumbnails";
-import { coverMediaJoin, formatEventDate, type AzoEvent } from "@/lib/events";
+import { coverMediaJoin, eventYear, formatEventDate, type AzoEvent } from "@/lib/events";
 import { EventForm } from "./EventForm";
 import { EventPanel } from "./EventPanel";
 
@@ -16,6 +16,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "view" });
   const [tab, setTab] = useState<"upcoming" | "past" | "archived">("upcoming");
+  const [year, setYear] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -42,7 +43,12 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   const upcoming = active.filter(isUpcoming).reverse();
   const past = active.filter((e) => !isUpcoming(e));
   const archived = events.filter((e) => e.status === "archived");
-  const list = { upcoming, past, archived }[tab];
+  const tabEvents = { upcoming, past, archived }[tab];
+  // Year chips follow the tab's order: upcoming counts forward, past and archived backward.
+  const years = Array.from(new Set(tabEvents.map(eventYear)));
+  const activeYear = year && years.includes(year) ? year : null;
+  const list = activeYear ? tabEvents.filter((e) => eventYear(e) === activeYear) : tabEvents;
+  const chooseTab = (next: typeof tab) => { setTab(next); setYear(null); };
   const selected = events.find((e) => e.id === selectedId) ?? null;
 
   const replaceEvent = (next: AzoEvent) => {
@@ -60,10 +66,20 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
       <div className="dashboard-grid">
         <aside className="event-list">
           <div className="filter-tabs" role="tablist">
-            <button role="tab" aria-selected={tab === "upcoming"} className={tab === "upcoming" ? "active" : ""} onClick={() => setTab("upcoming")}>Upcoming <span>{upcoming.length}</span></button>
-            <button role="tab" aria-selected={tab === "past"} className={tab === "past" ? "active" : ""} onClick={() => setTab("past")}>Past <span>{past.length}</span></button>
-            {archived.length > 0 && <button role="tab" aria-selected={tab === "archived"} className={tab === "archived" ? "active" : ""} onClick={() => setTab("archived")}>Archived <span>{archived.length}</span></button>}
+            <button role="tab" aria-selected={tab === "upcoming"} className={tab === "upcoming" ? "active" : ""} onClick={() => chooseTab("upcoming")}>Upcoming <span>{upcoming.length}</span></button>
+            <button role="tab" aria-selected={tab === "past"} className={tab === "past" ? "active" : ""} onClick={() => chooseTab("past")}>Past <span>{past.length}</span></button>
+            {archived.length > 0 && <button role="tab" aria-selected={tab === "archived"} className={tab === "archived" ? "active" : ""} onClick={() => chooseTab("archived")}>Archived <span>{archived.length}</span></button>}
           </div>
+          {years.length > 1 && (
+            <div className="year-chips" role="group" aria-label="Filter by year">
+              <button aria-pressed={!activeYear} className={!activeYear ? "active" : ""} onClick={() => setYear(null)}>All</button>
+              {years.map((y) => (
+                <button key={y} aria-pressed={activeYear === y} className={activeYear === y ? "active" : ""} onClick={() => setYear(y)}>
+                  {y} <span>{tabEvents.filter((e) => eventYear(e) === y).length}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {list.length === 0 && <p className="empty-state">{{ upcoming: "No upcoming events. Create one to get an upload link.", past: "No past events yet.", archived: "No archived events." }[tab]}</p>}
           {list.map((e) => (
             <button key={e.id} className={`event-row${e.id === selectedId ? " selected" : ""}`} onClick={() => { setSelectedId(e.id); setMode({ kind: "view" }); }}>
