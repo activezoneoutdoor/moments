@@ -1,4 +1,4 @@
-const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://studio.activezoneoutdoor.cy,http://localhost:3000")
+const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "https://moments.activezoneoutdoor.cy,http://localhost:3000")
   .split(",").map((origin) => origin.trim()).filter(Boolean);
 
 export function isAllowedOrigin(origin: string | null): origin is string {
