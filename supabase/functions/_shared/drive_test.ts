@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { accessToken, eventFolderName, findOrCreateFolder } from "./drive.ts";
+import { accessToken, eventFolderName, findOrCreateFolder, getThumbnail } from "./drive.ts";
 
 Deno.test("event folder uses the Cyprus date, activity and location", () => {
   assertEquals(
@@ -91,4 +91,27 @@ Deno.test("a folder is never created without its parent when Drive can't find th
     globalThis.fetch = realFetch;
   }
   assertEquals(methods, ["GET"]);
+});
+
+Deno.test("thumbnails are fetched through the app's Drive access at the requested size", async () => {
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_ID", "client-id");
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_SECRET", "client-secret");
+  Deno.env.set("GOOGLE_OAUTH_REFRESH_TOKEN", "refresh-token");
+
+  const realFetch = globalThis.fetch;
+  const imageRequests: { url: string; auth: string | null }[] = [];
+  globalThis.fetch = (input, init) => {
+    const url = new URL(String(input));
+    if (url.hostname === "oauth2.googleapis.com") return Promise.resolve(Response.json({ access_token: "a", expires_in: 3600 }));
+    if (url.hostname === "www.googleapis.com") return Promise.resolve(Response.json({ thumbnailLink: "https://lh3.googleusercontent.com/drive-storage/abc=s220" }));
+    imageRequests.push({ url: String(input), auth: new Headers(init?.headers).get("Authorization")?.startsWith("Bearer ") ? "Bearer <token>" : null });
+    return Promise.resolve(new Response(new Uint8Array([9]), { headers: { "Content-Type": "image/png" } }));
+  };
+  try {
+    const thumb = await getThumbnail("file-1", 480);
+    assertEquals(thumb?.type, "image/png");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assertEquals(imageRequests, [{ url: "https://lh3.googleusercontent.com/drive-storage/abc=s480", auth: "Bearer <token>" }]);
 });

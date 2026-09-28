@@ -10,3 +10,6 @@ verify_jwt = false
 
 [functions.album-publish]
 verify_jwt = false
+
+[functions.media-thumbnail]
+verify_jwt = false

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { eventCoverUrl } from "@/lib/covers";
+import { useStaffThumbnail } from "@/lib/thumbnails";
 import { coverMediaJoin, formatEventDate, type AzoEvent } from "@/lib/events";
 import { EventForm } from "./EventForm";
 import { EventPanel } from "./EventPanel";
@@ -66,7 +67,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
           {list.length === 0 && <p className="empty-state">{{ upcoming: "No upcoming events. Create one to get an upload link.", past: "No past events yet.", archived: "No archived events." }[tab]}</p>}
           {list.map((e) => (
             <button key={e.id} className={`event-row${e.id === selectedId ? " selected" : ""}`} onClick={() => { setSelectedId(e.id); setMode({ kind: "view" }); }}>
-              <EventThumb url={eventCoverUrl(supabase, e, e.cover?.drive_file_id, 160)} />
+              <EventThumb supabase={supabase} event={e} />
               <span className="event-row-body">
                 <span className="event-row-top"><b>{e.title}</b>{pending[e.id] ? <span className="pill attention">{pending[e.id]} to review</span> : null}</span>
                 <span className="event-meta">{formatEventDate(e)} · {e.location_name}</span>
@@ -113,6 +114,9 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   );
 }
 
-function EventThumb({ url }: { url: string | null }) {
-  return <span className="event-thumb">{url && <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />}</span>;
+function EventThumb({ supabase, event }: { supabase: SupabaseClient; event: AzoEvent }) {
+  // An album photo used as the event photo may not be public yet, so it comes through the thumbnail function.
+  const albumCover = useStaffThumbnail(supabase, event.cover_image_path ? null : event.cover_media_id, 160);
+  const url = eventCoverUrl(supabase, event) ?? albumCover;
+  return <span className="event-thumb">{url && <img src={url} alt="" loading="lazy" />}</span>;
 }

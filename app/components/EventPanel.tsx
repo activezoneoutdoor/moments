@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearEventCover, eventCoverUrl } from "@/lib/covers";
+import { useStaffThumbnail } from "@/lib/thumbnails";
 import {
-  callFunction, coverMediaJoin, driveFolderUrl, driveThumbnail, eventPageUrl, formatEventDate, isVideo, uploadLinkUrl,
+  callFunction, coverMediaJoin, driveFolderUrl, eventPageUrl, formatEventDate, isVideo, uploadLinkUrl,
   type AzoEvent, type Media, type MediaStatus,
 } from "@/lib/events";
 
@@ -133,7 +134,9 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const visible = filter === "all" ? media : media.filter((m) => m.status === filter);
   const pendingIds = media.filter((m) => m.status === "pending").map((m) => m.id);
 
-  const coverUrl = eventCoverUrl(supabase, event, event.cover?.drive_file_id, 1200);
+  // An album photo used as the event photo may not be public yet, so staff load it through the thumbnail function.
+  const albumCover = useStaffThumbnail(supabase, event.cover_image_path ? null : event.cover_media_id, 1200);
+  const coverUrl = eventCoverUrl(supabase, event) ?? albumCover;
   const archived = event.status === "archived";
   const albumIsPublic = event.album_status === "published";
   const confirmed = !albumIsPublic || confirmTitle.trim() === event.title.trim();
@@ -212,7 +215,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
           {visible.map((item) => (
             <figure key={item.id} className={`media-tile status-${item.status}`}>
               <a href={`https://drive.google.com/file/d/${item.drive_file_id}/view`} target="_blank" rel="noreferrer" className="media-thumb">
-                <img src={driveThumbnail(item.drive_file_id, 480)} alt={item.name} loading="lazy" referrerPolicy="no-referrer" />
+                <StaffThumb supabase={supabase} media={item} />
                 {isVideo(item) && <span className="video-badge">▶ VIDEO</span>}
                 {event.cover_media_id === item.id && <span className="cover-badge">EVENT PHOTO</span>}
               </a>
@@ -258,4 +261,10 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
       )}
     </section>
   );
+}
+
+function StaffThumb({ supabase, media }: { supabase: SupabaseClient; media: Media }) {
+  const url = useStaffThumbnail(supabase, media.id);
+  if (url) return <img src={url} alt={media.name} />;
+  return <span className="thumb-placeholder">{url === undefined ? "Loading…" : isVideo(media) ? "Video preview not ready yet" : "No preview"}</span>;
 }

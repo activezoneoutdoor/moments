@@ -99,3 +99,6 @@ h1,h2,h3,p{margin-top:0}
 .ghost-button.danger{color:#a1483f;border-color:#e7cfc9}.ghost-button.danger:hover:not(:disabled){border-color:#a1483f}.primary-button.danger{background:#a1483f}.primary-button.danger:hover:not(:disabled){background:#8a3a32}
 .archive-confirm{padding:16px 18px;border:1px solid #e7cfc9;border-radius:6px;background:#fcf6f4}.archive-confirm p:not(.eyebrow){font-size:12.5px;line-height:1.6;color:#4c544d;margin:0 0 12px}.archive-confirm .eyebrow{color:#a1483f;margin-bottom:6px}
 .archive-confirm label{display:flex;flex-direction:column;gap:6px;font-size:11.5px;font-weight:600;color:#4c5a50;max-width:420px}.archive-confirm input{font:inherit;font-size:13.5px;font-weight:400;padding:9px 11px;border:1px solid #d9dfd2;border-radius:4px}.archive-confirm .form-actions{margin-top:14px}
+/* Staff previews and review badge */
+.thumb-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;color:#8a948b;font-size:11px;line-height:1.4}
+.event-row-top{align-items:center}.event-row-top .pill{flex:none;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;line-height:1.2}
