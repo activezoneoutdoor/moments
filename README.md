@@ -11,17 +11,15 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 | `/upload/?t=<token>` | Anyone with the link | Upload photos and videos (up to 2 GB each, resumable) |
 | `/admin/` | Staff (`@activezoneoutdoor.cy`) | Create/edit events, copy/close/rotate upload links, review media, publish albums |
 
-Old `/events/` links redirect to `/`.
-
 ## Supabase setup
 
 1. Create a Supabase project and enable Google under **Authentication → Providers**. Create a Google OAuth web client and put its client ID and secret in Supabase's provider settings. Do not put the Google client secret or a Supabase service-role key in this repository.
 2. Add Supabase's Google callback URL (`https://<project-ref>.supabase.co/auth/v1/callback`) to the Google OAuth client's authorized redirect URIs.
 3. In Supabase **Authentication → URL Configuration**, set the site URL and allow these redirect URLs:
-   - `http://localhost:3000/admin/`
-   - `https://moments.activezoneoutdoor.cy/admin/`
+   - `http://localhost:3000/**`
+   - `https://moments.activezoneoutdoor.cy/**`
 
-   Staff sign in on `/admin/`, and Google sends them back there, so that exact URL must be allowed.
+   This is Supabase's allowlist of where sign-in may return to. Staff sign in on `/admin/` and are sent back there.
 4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
 
 5. Run `supabase/migrations/20260927000000_restrict_workspace_signups.sql` in the Supabase SQL Editor. Then enable **Authentication → Hooks → Before User Created** and select `public.enforce_azo_workspace_signup`. This hook rejects account creation unless the account is a Google identity with the approved domain.
@@ -73,7 +71,7 @@ supabase functions deploy album-publish --no-verify-jwt
 ## Run locally
 
 1. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the Supabase project. Leave `NEXT_PUBLIC_BASE_PATH` empty for local development.
-2. In Supabase **Authentication → URL Configuration**, add `http://localhost:3000/admin/` to the allowed redirect URLs.
+2. In Supabase **Authentication → URL Configuration**, add `http://localhost:3000/**` to the allowed redirect URLs.
 3. From the repository folder, run `npm install`, then `npm run dev`.
 4. Open [http://localhost:3000](http://localhost:3000) for the public events page, or [http://localhost:3000/admin/](http://localhost:3000/admin/) to sign in with an `@activezoneoutdoor.cy` Google Workspace account.
 
@@ -84,7 +82,7 @@ The app requests Google with `hd=activezoneoutdoor.cy` to guide account selectio
 The workflow in `.github/workflows/pages.yml` builds and deploys this repository to `https://moments.activezoneoutdoor.cy/` whenever a change is pushed to `main`.
 
 1. **Finish Supabase setup first.** In the Supabase project, enable Google sign-in, apply the workspace signup migration and hook above, and set the production Site URL to `https://moments.activezoneoutdoor.cy/`.
-2. **Allow the admin redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://moments.activezoneoutdoor.cy/admin/` (keep `http://localhost:3000/admin/` there too if you run locally).
+2. **Allow the admin redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://moments.activezoneoutdoor.cy/**` (keep `http://localhost:3000/**` there too if you run locally).
 3. **Add the public Supabase browser settings to GitHub.** Open the repository on GitHub, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. Add both:
    - Name: `NEXT_PUBLIC_SUPABASE_URL` · Value: the Supabase project's URL.
    - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY` · Value: the project's publishable key (or legacy anon key).
