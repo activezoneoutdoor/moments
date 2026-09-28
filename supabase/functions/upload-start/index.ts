@@ -8,7 +8,10 @@ const MAX_BYTES = 2 * 1024 ** 3;
 
 serveJson(async (req, body) => {
   const origin = req.headers.get("Origin");
-  if (!isAllowedOrigin(origin)) throw new HttpError(403, "Uploads are only accepted from the AZO website.");
+  // Drive binds the upload session to the browser's origin, so only our own site can use it.
+  if (!isAllowedOrigin(origin)) {
+    throw new HttpError(403, `This website (${origin ?? "unknown origin"}) isn't allowed to upload. Add it to the ALLOWED_ORIGINS secret.`);
+  }
 
   const event = await eventForUploadToken(requireString(body, "token", 100));
   const filename = requireString(body, "filename", 250).replace(/[\\/]/g, "_");

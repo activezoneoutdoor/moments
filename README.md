@@ -61,12 +61,17 @@ supabase secrets set \
   GOOGLE_OAUTH_REFRESH_TOKEN=<refresh-token> \
   AZO_SHARED_DRIVE_ID=<shared-drive-id> \
   ALLOWED_ORIGINS=https://moments.activezoneoutdoor.cy,http://localhost:3000
-supabase functions deploy upload-start --no-verify-jwt
-supabase functions deploy upload-finish --no-verify-jwt
-supabase functions deploy album-publish --no-verify-jwt
+supabase functions deploy
 ```
 
-`--no-verify-jwt` lets anonymous participants call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+`supabase/config.toml` deploys all three with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+
+### Troubleshooting uploads
+
+If an upload fails with "Couldn't reach the upload service", the browser got no answer from `upload-start`:
+- In Supabase, open **Edge Functions → upload-start**: check that it exists and look at its **Logs**.
+- Redeploy with `supabase functions deploy` so `verify_jwt = false` from `supabase/config.toml` applies.
+- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://moments.activezoneoutdoor.cy`) to the `ALLOWED_ORIGINS` secret and redeploy.
 
 ## Run locally
 
