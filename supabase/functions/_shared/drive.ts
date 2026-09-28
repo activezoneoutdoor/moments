@@ -1,12 +1,11 @@
-// Google Drive access through a service account that is a Content Manager on the albums Shared Drive.
+// Google Drive access as a staff account (Content manager of the albums Shared Drive), authorised once via OAuth.
+// With the drive.file scope the app only sees the folders and files it created itself.
 import { admin, type EventRow } from "./db.ts";
 
 const DRIVE = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const EVENT_TIME_ZONE = "Asia/Nicosia";
-
-type ServiceAccount = { client_email: string; private_key: string };
 
 export type DriveFile = { id: string; name: string; mimeType: string; size?: string; parents?: string[] };
 
@@ -18,50 +17,37 @@ function sharedDriveId(): string {
   return id;
 }
 
-function base64url(input: ArrayBuffer | string): string {
-  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : new Uint8Array(input);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-async function accessToken(): Promise<string> {
+/** Exchanges the stored OAuth refresh token (one-time consent by a staff account) for an access token. */
+export async function accessToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.value;
 
-  const account = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") ?? "{}") as ServiceAccount;
-  if (!account.client_email || !account.private_key) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not set.");
-
-  const now = Math.floor(Date.now() / 1000);
-  const unsigned = `${base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }))}.${base64url(JSON.stringify({
-    iss: account.client_email,
-    scope: "https://www.googleapis.com/auth/drive",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  }))}`;
-
-  const pem = account.private_key.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    Uint8Array.from(atob(pem), (c) => c.charCodeAt(0)),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned));
+  const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
+  const refreshToken = Deno.env.get("GOOGLE_OAUTH_REFRESH_TOKEN");
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_REFRESH_TOKEN must be set.");
+  }
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: `${unsigned}.${base64url(signature)}`,
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
     }),
   });
-  if (!res.ok) throw new Error(`Google token request failed: ${res.status} ${await res.text()}`);
-  const { access_token, expires_in } = await res.json();
-  cachedToken = { value: access_token, expiresAt: Date.now() + expires_in * 1000 };
-  return access_token;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (body.error === "invalid_grant") {
+      throw new Error("Google Drive authorisation expired or was revoked. Redo the consent step in the README and update GOOGLE_OAUTH_REFRESH_TOKEN.");
+    }
+    throw new Error(`Google token request failed: ${res.status} ${JSON.stringify(body)}`);
+  }
+
+  cachedToken = { value: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 };
+  return body.access_token;
 }
 
 async function drive(path: string, init: RequestInit = {}, params: Record<string, string> = {}): Promise<Response> {

@@ -26,8 +26,16 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 ## Google Drive setup (album storage)
 
 1. **Create a Shared Drive** in Google Drive, e.g. "AZO Albums". Open it and copy its ID from the URL (`https://drive.google.com/drive/folders/<shared-drive-id>`).
-2. **Create a service account.** In [Google Cloud Console](https://console.cloud.google.com/), enable the **Google Drive API** in a project. Create a service account under **IAM & Admin → Service accounts**, then create a JSON key for it. No domain-wide delegation is needed.
-3. **Add the service account to the Shared Drive** as a **Content manager**, using its `…@….iam.gserviceaccount.com` address.
+2. **Create an OAuth client** (no service-account key needed; the organisation policy `iam.disableServiceAccountKeyCreation` can stay on). In [Google Cloud Console](https://console.cloud.google.com/), in the same project as the Supabase sign-in client or a new one:
+   - Enable the **Google Drive API**.
+   - Under **Google Auth Platform → Audience** (older consoles: **OAuth consent screen**), make sure the user type is **Internal**. Internal apps need no Google verification, and their refresh tokens don't expire after 7 days.
+   - Under **Clients → Create client**, choose **Web application**, name it "AZO Drive uploader", and add the authorised redirect URI `https://developers.google.com/oauthplayground`. Copy the client ID and client secret.
+3. **Authorise it once with a staff account.** Use a stable account that is a **Content manager** of the Shared Drive.
+   - Open [OAuth Playground](https://developers.google.com/oauthplayground). Click ⚙ and tick **Use your own OAuth credentials**, then paste the client ID and secret.
+   - In **Step 1**, type the scope `https://www.googleapis.com/auth/drive.file` into the input box and click **Authorize APIs**. Sign in with that staff account.
+   - In **Step 2**, click **Exchange authorization code for tokens**, then copy the **Refresh token**.
+
+   `drive.file` limits the app to the folders and files it creates itself; the rest of your Drive stays invisible to it. The files belong to the Shared Drive, not to that account. If the account is later suspended or removes the app's access, uploads fail with an "authorisation expired or was revoked" error. Redo this step with another staff account and update the secret. If the Shared Drive refuses folder creation under `drive.file`, redo this step with the scope `https://www.googleapis.com/auth/drive`. No code change is needed.
 4. **Allow public album links.** Published albums share each approved file as "anyone with the link can view", so photos can be shown on the public page. In the Google Admin console, open **Apps → Google Workspace → Drive and Docs → Sharing settings** and allow sharing outside the organisation, at least for the organisational unit that owns the Shared Drive. In the Shared Drive's settings, allow people outside the organisation to access files. Unpublished and hidden uploads stay private.
 
 ## Edge Functions
@@ -45,7 +53,9 @@ Deploy with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 ```sh
 supabase link --project-ref <project-ref>
 supabase secrets set \
-  GOOGLE_SERVICE_ACCOUNT_JSON="$(cat service-account-key.json)" \
+  GOOGLE_OAUTH_CLIENT_ID=<client-id> \
+  GOOGLE_OAUTH_CLIENT_SECRET=<client-secret> \
+  GOOGLE_OAUTH_REFRESH_TOKEN=<refresh-token> \
   AZO_SHARED_DRIVE_ID=<shared-drive-id> \
   ALLOWED_ORIGINS=https://studio.activezoneoutdoor.cy,http://localhost:3000
 supabase functions deploy upload-start --no-verify-jwt
@@ -53,7 +63,7 @@ supabase functions deploy upload-finish --no-verify-jwt
 supabase functions deploy album-publish --no-verify-jwt
 ```
 
-`--no-verify-jwt` lets anonymous participants call the upload functions; each function checks its own access (upload token or staff session). Delete the downloaded key file after setting the secret, and never commit it. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+`--no-verify-jwt` lets anonymous participants call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
 
 ## Run locally
 
