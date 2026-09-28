@@ -1,6 +1,15 @@
 # AZO Studio | Active Zone Outdoor
 
-AZO Studio manages contributed photo albums from Google Drive and Google Photos, and curates the albums shown in the public Active Zone Outdoor gallery. Photos remain in Google; this app does not host or upload image files. The static app can be hosted on GitHub Pages, with Supabase Auth handling Google sign-in and sessions.
+AZO Studio lists Active Zone Outdoor events (date, location, leader, partner groups, group size) and collects each event's photos and videos from participants. Staff create an event and share its upload link, for example in the group chat. Participants upload without an account, and the files go straight into an automatically named folder in a Google Workspace Shared Drive, such as `2026/2026-09-27_SUP_Ayia-Napa`. Staff approve or hide uploads and publish the album on the event's public page.
+
+Everything runs on free tiers: the static site on GitHub Pages, data and sign-in on Supabase, and small Supabase Edge Functions that talk to Google Drive. Media never passes through Supabase. It is stored in the Workspace's pooled Drive storage and uploaded from the browser directly to Google.
+
+| Page | Who | Purpose |
+| --- | --- | --- |
+| `/` | Staff (`@activezoneoutdoor.cy`) | Create/edit events, copy/close/rotate upload links, review media, publish albums |
+| `/upload/?t=<token>` | Anyone with the link | Upload photos and videos (up to 2 GB each, resumable) |
+| `/events/` | Public | Upcoming events and past albums |
+| `/event/?slug=<slug>` | Public | Event details and the published album |
 
 ## Supabase setup
 
@@ -12,6 +21,39 @@ AZO Studio manages contributed photo albums from Google Drive and Google Photos,
 4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
 
 5. Run `supabase/migrations/20260927000000_restrict_workspace_signups.sql` in the Supabase SQL Editor. Then enable **Authentication → Hooks → Before User Created** and select `public.enforce_azo_workspace_signup`. This hook rejects account creation unless the account is a Google identity with the approved domain.
+6. Run `supabase/migrations/20260928000000_events_albums.sql` in the SQL Editor (or `supabase db push`). It creates `events`, `event_upload_links` and `media` with Row Level Security. Staff accounts can manage everything. The public can read only published events and the approved media of published albums. Upload tokens are never readable by the public.
+
+## Google Drive setup (album storage)
+
+1. **Create a Shared Drive** in Google Drive, e.g. "AZO Albums". Open it and copy its ID from the URL (`https://drive.google.com/drive/folders/<shared-drive-id>`).
+2. **Create a service account.** In [Google Cloud Console](https://console.cloud.google.com/), enable the **Google Drive API** in a project. Create a service account under **IAM & Admin → Service accounts**, then create a JSON key for it. No domain-wide delegation is needed.
+3. **Add the service account to the Shared Drive** as a **Content manager**, using its `…@….iam.gserviceaccount.com` address.
+4. **Allow public album links.** Published albums share each approved file as "anyone with the link can view", so photos can be shown on the public page. In the Google Admin console, open **Apps → Google Workspace → Drive and Docs → Sharing settings** and allow sharing outside the organisation, at least for the organisational unit that owns the Shared Drive. In the Shared Drive's settings, allow people outside the organisation to access files. Unpublished and hidden uploads stay private.
+
+## Edge Functions
+
+The functions in `supabase/functions/` hold the Google credentials; the browser never sees them.
+
+| Function | Caller | What it does |
+| --- | --- | --- |
+| `upload-start` | Participant upload page | Checks the upload link, creates the event's Drive folder on first use, and opens a resumable Drive upload session for the browser |
+| `upload-finish` | Participant upload page | Confirms the file is in the event folder and records it for review |
+| `album-publish` | Staff dashboard | Publishes or unpublishes an album and syncs Drive link sharing, so only approved files are public |
+
+Deploy with the [Supabase CLI](https://supabase.com/docs/guides/cli):
+
+```sh
+supabase link --project-ref <project-ref>
+supabase secrets set \
+  GOOGLE_SERVICE_ACCOUNT_JSON="$(cat service-account-key.json)" \
+  AZO_SHARED_DRIVE_ID=<shared-drive-id> \
+  ALLOWED_ORIGINS=https://studio.activezoneoutdoor.cy,http://localhost:3000
+supabase functions deploy upload-start --no-verify-jwt
+supabase functions deploy upload-finish --no-verify-jwt
+supabase functions deploy album-publish --no-verify-jwt
+```
+
+`--no-verify-jwt` lets anonymous participants call the upload functions; each function checks its own access (upload token or staff session). Delete the downloaded key file after setting the secret, and never commit it. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
 
 ## Run locally
 
@@ -20,7 +62,7 @@ AZO Studio manages contributed photo albums from Google Drive and Google Photos,
 3. From the repository folder, run `npm install`, then `npm run dev`.
 4. Open [http://localhost:3000](http://localhost:3000) and sign in with an `@activezoneoutdoor.cy` Google Workspace account.
 
-The app requests Google with `hd=activezoneoutdoor.cy` to guide account selection, then checks the returned account email before showing AZO Studio. Supabase Auth's Before User Created hook enforces the domain for new accounts. Before storing album metadata or publishing controls, apply Row Level Security policies to those records. Photos themselves remain in Google Drive and Google Photos.
+The app requests Google with `hd=activezoneoutdoor.cy` to guide account selection, then checks the returned account email before showing AZO Studio. Supabase Auth's Before User Created hook enforces the domain for new accounts. The database's Row Level Security policies apply the same domain check to every staff write. Participants never sign in; the upload link token is their only access.
 
 ## GitHub Pages deployment
 

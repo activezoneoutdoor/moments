@@ -1,75 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
-
-const allowedDomain = "activezoneoutdoor.cy";
+import { allowedDomain, useStaffSession } from "@/lib/auth";
+import { Dashboard } from "./components/Dashboard";
+import { StaffTopbar } from "./components/Shell";
 
 export default function Home() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [checking, setChecking] = useState(true);
-  const [notice, setNotice] = useState("");
-  const supabase = getSupabaseBrowserClient();
-
-  useEffect(() => {
-    if (!supabase) {
-      setChecking(false);
-      return;
-    }
-
-    const acceptSession = (next: Session | null) => {
-      if (!next) {
-        setSession(null);
-        return;
-      }
-
-      const email = next.user.email?.trim().toLowerCase() ?? "";
-      if (email.endsWith(`@${allowedDomain}`)) {
-        setSession(next);
-        setNotice("");
-      } else {
-        setSession(null);
-        setNotice(`This studio is limited to @${allowedDomain} accounts.`);
-        window.setTimeout(() => { void supabase.auth.signOut(); }, 0);
-      }
-    };
-
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (error) setNotice("Could not check your sign-in. Please try again.");
-      acceptSession(data.session);
-      setChecking(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => acceptSession(next));
-    return () => listener.subscription.unsubscribe();
-  }, [supabase]);
-
-  async function signIn() {
-    if (!supabase) return;
-    setNotice("");
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo, queryParams: { hd: allowedDomain, prompt: "select_account" } },
-    });
-    if (error) setNotice(error.message);
-  }
-
-  async function signOut() {
-    if (supabase) await supabase.auth.signOut();
-  }
+  const { supabase, session, checking, notice, signIn, signOut } = useStaffSession();
 
   if (checking) return <main className="loading-shell"><span className="brand-mark">AZO</span><p>Opening AZO Studio…</p></main>;
 
-  if (!session) {
+  if (!session || !supabase) {
     return (
       <main className="login-shell">
         <section className="login-card">
           <div className="brand-mark" aria-hidden="true">AZO</div>
           <p className="eyebrow">ACTIVE ZONE OUTDOOR</p>
-          <h1>Your albums,<br />thoughtfully curated.</h1>
-          <p className="intro">Bring contributor albums from Google Drive and Google Photos together, then choose what appears in the public Active Zone Outdoor gallery.</p>
+          <h1>Your activities,<br />thoughtfully shared.</h1>
+          <p className="intro">Plan events, collect participants&apos; photos and videos with one link, and publish each album on its public event page.</p>
           <button className="google-button" onClick={signIn} disabled={!supabase}>
             <GoogleMark /> Continue with Google <span aria-hidden="true">→</span>
           </button>
@@ -82,43 +29,25 @@ export default function Home() {
           <div className="sun"></div>
           <div className="mountain mountain-back"></div>
           <div className="mountain mountain-front"></div>
-          <div className="photo-caption"><span>AZO STUDIO · ALBUM MANAGEMENT</span><b>Stories made to be shared.</b></div>
+          <div className="photo-caption"><span>AZO STUDIO · EVENTS & ALBUMS</span><b>Stories made to be shared.</b></div>
           <div className="image-credit">ACTIVE ZONE OUTDOOR · CYPRUS</div>
         </aside>
       </main>
     );
   }
 
-  const fullName = session.user.user_metadata.full_name
-    ?? session.user.user_metadata.name
-    ?? "AZO team member";
+  const fullName = session.user.user_metadata.full_name ?? session.user.user_metadata.name ?? "";
   const firstName = fullName.split(" ")[0];
-  const avatarUrl = session.user.user_metadata.avatar_url ?? session.user.user_metadata.picture;
 
   return (
     <main className="workspace-shell">
-      <header className="topbar">
-        <a className="wordmark" href="./" aria-label="AZO Studio home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>AZO STUDIO</i></span></a>
-        <div className="account">
-          {avatarUrl ? <img className="avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span className="avatar">{fullName[0]?.toUpperCase() ?? "A"}</span>}
-          <span className="account-details"><span className="account-name" title={fullName}>{fullName}</span><span className="account-email" title={session.user.email ?? undefined}>{session.user.email}</span></span>
-          <button className="sign-out" onClick={signOut}>Sign out</button>
-        </div>
-      </header>
+      <StaffTopbar session={session} onSignOut={signOut} />
       <section className="welcome">
         <p className="eyebrow">AZO STUDIO · YOUR WORKSPACE</p>
         <h1>Good to have you here{firstName ? `, ${firstName}` : ""}.</h1>
-        <p>Manage contributor albums from Google Drive and Google Photos, then curate the public Active Zone Outdoor gallery.</p>
+        <p>Create events, share one upload link per activity, and publish the best photos and videos.</p>
       </section>
-      <section className="album-section">
-        <div className="section-heading"><div><p className="eyebrow">ALBUM WORKFLOW</p><h2>Manage your sources</h2></div><span className="coming-label">AZO STUDIO</span></div>
-        <p className="source-intro">Photos stay in Google. AZO Studio will organize the albums people contribute and control which collections appear in the public gallery.</p>
-        <div className="source-grid">
-          <article className="source-card"><div className="source-icon drive-icon">D</div><div className="source-copy"><p className="eyebrow">CONTRIBUTOR LIBRARY</p><h3>Google Drive</h3><p>Review shared folders and albums contributed by the team.</p></div><span className="soon">CONNECT SOON</span></article>
-          <article className="source-card"><div className="source-icon photos-icon">◉</div><div className="source-copy"><p className="eyebrow">CURATED COLLECTIONS</p><h3>Google Photos</h3><p>Choose the albums to feature in the public gallery.</p></div><span className="soon">CONNECT SOON</span></article>
-        </div>
-        <div className="public-gallery-note"><span className="gallery-dot"></span><div><p className="eyebrow">PUBLIC VIEW</p><strong>Active Zone Outdoor photo albums</strong><p>Published albums will appear here for everyone to browse.</p></div><span className="soon">NOT CONNECTED</span></div>
-      </section>
+      <Dashboard supabase={supabase} />
       <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>
     </main>
   );
