@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { eventCoverUrl } from "@/lib/covers";
 import { coverMediaJoin, eventPageUrl, formatEventDate, publicEventColumns, type AzoEvent } from "@/lib/events";
 import { PublicShell } from "./components/Shell";
+import { useYearFilter, YearChips } from "./components/YearChips";
 
 export default function EventsPage() {
   const supabase = getSupabaseBrowserClient();
@@ -45,12 +46,14 @@ export default function EventsPage() {
 type GridProps = { supabase: SupabaseClient | null; title: string; eyebrow: string; events: AzoEvent[]; empty: string };
 
 function EventGrid({ supabase, title, eyebrow, events, empty }: GridProps) {
+  const yearFilter = useYearFilter(events);
   return (
     <section className="album-section">
       <div className="section-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div></div>
+      <YearChips {...yearFilter} onChange={yearFilter.setYear} />
       {events.length === 0 ? <p className="empty-state">{empty}</p> : (
         <div className="event-cards">
-          {events.map((e) => (
+          {yearFilter.filtered.map((e) => (
             <a key={e.id} className="event-card" href={eventPageUrl(e.slug)}>
               <div className="event-cover">
                 <CoverImage url={eventCoverUrl(e, e.cover?.drive_file_id, 800)} label={e.activity} />

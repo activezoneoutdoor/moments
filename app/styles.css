@@ -104,3 +104,4 @@ h1,h2,h3,p{margin-top:0}
 .event-row-top{align-items:center}.event-row-top .pill{flex:none;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;line-height:1.2}
 /* Year filter chips */
 .year-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}.year-chips button{border:1px solid #d5dccf;background:#fff;color:#526258;border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:600;cursor:pointer}.year-chips button span{color:#a0a89f;margin-left:2px;font-weight:500}.year-chips button:hover{border-color:var(--green)}.year-chips button.active{background:var(--green);border-color:var(--green);color:#fff}.year-chips button.active span{color:#cfe3c6}
+.album-section .year-chips{margin:-8px 0 20px}
