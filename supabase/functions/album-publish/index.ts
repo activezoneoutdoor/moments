@@ -2,7 +2,7 @@
 // so only approved files of published albums are viewable by the public.
 import { admin, eventById, requireStaff } from "../_shared/db.ts";
 import { setPublicLink } from "../_shared/drive.ts";
-import { requireString, serveJson } from "../_shared/http.ts";
+import { HttpError, requireString, serveJson } from "../_shared/http.ts";
 
 const CONCURRENCY = 8;
 
@@ -16,6 +16,7 @@ serveJson(async (req, body) => {
   await requireStaff(req);
   const event = await eventById(requireString(body, "eventId", 100));
   const publish = body.publish === true;
+  if (publish && event.status === "archived") throw new HttpError(409, "Restore the event before publishing its album.");
 
   const { data: media, error } = await admin().from("media").select("drive_file_id, status").eq("event_id", event.id);
   if (error) throw error;

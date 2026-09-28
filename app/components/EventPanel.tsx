@@ -30,6 +30,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const [filter, setFilter] = useState<MediaStatus | "all">("pending");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
 
   const load = useCallback(async () => {
     const [linkResult, mediaResult] = await Promise.all([
@@ -82,6 +84,27 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
     setMessage(publish ? "Album published." : "Album taken down.");
   });
 
+  // Archiving keeps everything (media records, Drive folder, event photo) but takes it all off the public site:
+  // Drive link sharing is removed, the event is hidden and uploads stop.
+  const archive = () => run("archive", async () => {
+    if (event.album_status === "published") await callFunction(supabase, "album-publish", { eventId: event.id, publish: false });
+    const { error } = await supabase.from("events").update({ status: "archived" }).eq("id", event.id);
+    if (error) throw error;
+    const { error: linkError } = await supabase.from("event_upload_links").update({ open: false }).eq("event_id", event.id);
+    if (linkError) throw linkError;
+    setArchiveOpen(false);
+    setConfirmTitle("");
+    await Promise.all([load(), refreshEvent()]);
+  });
+
+  // Restored events come back as drafts; staff publish the event and album again when ready.
+  const restore = () => run("restore", async () => {
+    const { error } = await supabase.from("events").update({ status: "draft" }).eq("id", event.id);
+    if (error) throw error;
+    await refreshEvent();
+    setMessage("Event restored as a draft. Publish it and its album again when ready.");
+  });
+
   const rotateLink = () => run("link", async () => {
     if (!window.confirm("Create a new upload link? The current link will stop working.")) return;
     const { error } = await supabase.rpc("rotate_upload_link", { p_event_id: event.id });
@@ -111,12 +134,21 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const pendingIds = media.filter((m) => m.status === "pending").map((m) => m.id);
 
   const coverUrl = eventCoverUrl(supabase, event, event.cover?.drive_file_id, 1200);
+  const archived = event.status === "archived";
+  const albumIsPublic = event.album_status === "published";
+  const confirmed = !albumIsPublic || confirmTitle.trim() === event.title.trim();
 
   return (
     <section className="event-panel">
       {coverUrl
         ? <img className="panel-cover" src={coverUrl} alt="" referrerPolicy="no-referrer" />
         : <button className="panel-cover empty" onClick={onEdit}>+ Add an event photo</button>}
+      {archived && (
+        <div className="archived-banner" role="status">
+          <span><b>Archived.</b> Hidden from the public site; uploads are closed. Photos, videos and the Drive folder are kept.</span>
+          <button className="primary-button" disabled={!!busy} onClick={restore}>Restore event</button>
+        </div>
+      )}
       <div className="panel-head">
         <div>
           <p className="eyebrow">{event.activity.toUpperCase()} · {event.status.toUpperCase()}</p>
@@ -131,7 +163,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
         <div className="panel-actions">
           <button className="ghost-button" onClick={onEdit}>Edit details</button>
           <button className="ghost-button" disabled={!!busy} onClick={() => run("refresh", async () => { await Promise.all([load(), refreshEvent()]); })}>Refresh</button>
-          {event.status !== "draft" && <a className="ghost-button" href={eventPageUrl(event.slug)} target="_blank" rel="noreferrer">Public page ↗</a>}
+          {event.status !== "draft" && !archived && <a className="ghost-button" href={eventPageUrl(event.slug)} target="_blank" rel="noreferrer">Public page ↗</a>}
         </div>
       </div>
 
@@ -157,7 +189,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
         <div><p className="eyebrow">ALBUM · {event.album_status.toUpperCase()}</p><h2>Review media</h2></div>
         <div className="panel-actions">
           {pendingIds.length > 0 && <button className="ghost-button" disabled={!!busy} onClick={() => setStatus(pendingIds, "approved")}>Approve all {pendingIds.length}</button>}
-          <button className="primary-button" disabled={!!busy || (event.album_status !== "published" && counts.approved === 0)} onClick={togglePublish}>
+          <button className="primary-button" disabled={!!busy || (event.album_status !== "published" && (counts.approved === 0 || archived))} onClick={togglePublish}>
             {busy === "publish" ? "Working…" : event.album_status === "published" ? "Unpublish album" : "Publish album"}
           </button>
         </div>
@@ -194,6 +226,34 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
               </figcaption>
             </figure>
           ))}
+        </div>
+      )}
+
+      {!archived && (
+        <div className="danger-zone">
+          {!archiveOpen ? (
+            <button className="ghost-button danger" onClick={() => setArchiveOpen(true)}>Archive event…</button>
+          ) : (
+            <div className="archive-confirm">
+              <p className="eyebrow">ARCHIVE EVENT</p>
+              <p>
+                The event disappears from the public site and its upload link stops working.
+                {albumIsPublic
+                  ? <> <b>Its album is public: {counts.approved} photo{counts.approved === 1 ? "" : "s"} and video{counts.approved === 1 ? "" : "s"} will be taken offline.</b></>
+                  : null}{" "}
+                Nothing is deleted: media and the Drive folder are kept, and you can restore the event later.
+              </p>
+              {albumIsPublic && (
+                <label>Type the event name to confirm
+                  <input value={confirmTitle} onChange={(e) => setConfirmTitle(e.target.value)} placeholder={event.title} />
+                </label>
+              )}
+              <div className="form-actions">
+                <button className="primary-button danger" disabled={!!busy || !confirmed} onClick={archive}>{busy === "archive" ? "Archiving…" : "Archive event"}</button>
+                <button className="ghost-button" onClick={() => { setArchiveOpen(false); setConfirmTitle(""); }}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

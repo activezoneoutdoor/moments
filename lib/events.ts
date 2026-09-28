@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type EventStatus = "draft" | "published" | "cancelled";
+export type EventStatus = "draft" | "published" | "cancelled" | "archived";
 export type AlbumStatus = "none" | "collecting" | "published";
 export type MediaStatus = "pending" | "approved" | "hidden";
 
