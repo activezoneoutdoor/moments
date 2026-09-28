@@ -24,8 +24,8 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 
 5. Run `supabase/migrations/20260927000000_restrict_workspace_signups.sql` in the Supabase SQL Editor. Then enable **Authentication → Hooks → Before User Created** and select `public.enforce_azo_workspace_signup`. This hook rejects account creation unless the account is a Google identity with the approved domain.
 6. Run `supabase/migrations/20260928000000_events_albums.sql` in the SQL Editor (or `supabase db push`). It creates `events`, `event_upload_links` and `media` with Row Level Security. Staff accounts can manage everything. The public can read only published events and the approved media of published albums. Upload tokens are never readable by the public.
-7. Run `supabase/migrations/20260929000000_event_cover_images.sql`. It adds event photos: a public Storage bucket `event-covers` that only staff can write to. Staff pick the photo in the event form; it is resized in the browser to at most 1920px (typically 200–500 KB). Alternatively, an approved album photo can be used as the event photo. Whichever was chosen last is shown.
-8. Run `supabase/migrations/20260930000000_archive_events.sql`. It adds the `archived` status. Staff archive an event from its panel instead of deleting it: the event and album leave the public site, Drive link sharing is removed, and the upload link closes. Media records, the Drive folder and the event photo are kept, and **Restore event** brings the event back as a draft.
+7. Run `supabase/migrations/20260930000000_archive_events.sql`. It adds the `archived` status. Staff archive an event from its panel instead of deleting it: the event and album leave the public site, Drive link sharing (including the event photo) is removed, and the upload link closes. Media records, the Drive folder and the event photo are kept, and **Restore event** brings the event back as a draft.
+8. Run `supabase/migrations/20261001000000_event_photo_in_drive.sql`. Event photos are stored as `_event-photo.jpg` in the event's Drive folder and shared by link, so they use no Supabase storage or bandwidth. Staff pick the photo in the event form; it is resized in the browser to at most 1920px, and pages load it at the size they need. An approved album photo can be used instead; whichever was chosen last is shown. If your project has an `event-covers` bucket from an earlier version, delete it under **Storage** in the Supabase dashboard.
 
 ## Google Drive setup (album storage)
 
@@ -52,6 +52,7 @@ The functions in `supabase/functions/` hold the Google credentials; the browser 
 | `upload-finish` | Participant upload page | Confirms the file is in the event folder and records it for review |
 | `album-publish` | Staff dashboard | Publishes or unpublishes an album and syncs Drive link sharing, so only approved files are public |
 | `media-thumbnail` | Staff dashboard | Returns an upload's preview image through the app's Drive access, so staff browsers don't need Google cookies (which browsers often block for other sites) |
+| `event-photo` | Staff dashboard | Saves, replaces or removes the event photo in the event's Drive folder and turns its link sharing on or off when the event is restored or archived |
 
 Deploy with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 

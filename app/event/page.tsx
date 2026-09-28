@@ -40,7 +40,7 @@ export default function EventPage() {
     ? `https://www.google.com/maps/search/?api=1&query=${event.lat},${event.lng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location_name)}`;
 
-  const coverUrl = supabase ? eventCoverUrl(supabase, event, event.cover?.drive_file_id, 2000) : null;
+  const coverUrl = eventCoverUrl(event, event.cover?.drive_file_id, 2000);
 
   return (
     <PublicShell>

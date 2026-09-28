@@ -85,7 +85,7 @@ async function listFolders(name: string, parentId: string): Promise<string[]> {
   return ((await list.json()).files ?? []).map((file: { id: string }) => file.id);
 }
 
-async function trash(fileId: string): Promise<void> {
+export async function trash(fileId: string): Promise<void> {
   await drive(`/files/${encodeURIComponent(fileId)}`, { method: "PATCH", body: JSON.stringify({ trashed: true }) }, { fields: "id" });
 }
 
@@ -189,6 +189,23 @@ export async function startResumableUpload(opts: {
 export async function getFile(fileId: string): Promise<DriveFile | null> {
   const res = await drive(`/files/${encodeURIComponent(fileId)}`, {}, { fields: "id,name,mimeType,size,parents" }, { allowNotFound: true });
   return res.status === 404 ? null : await res.json();
+}
+
+/** Uploads a small file (up to a few MB) into a folder in one request and returns its ID. */
+export async function uploadSmallFile(folderId: string, name: string, mimeType: string, bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+  const boundary = `azo-${crypto.randomUUID()}`;
+  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+    `${JSON.stringify({ name, parents: [folderId] })}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`;
+  const body = new Blob([head, bytes, `\r\n--${boundary}--`]);
+
+  const res = await drive(`${DRIVE_UPLOAD}/files`, {
+    method: "POST",
+    headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+    body,
+  }, { uploadType: "multipart", fields: "id" });
+  const id: string | undefined = (await res.json()).id;
+  if (!id) throw new Error(`Drive did not return an ID for "${name}".`);
+  return id;
 }
 
 /**

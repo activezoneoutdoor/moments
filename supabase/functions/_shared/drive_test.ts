@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { accessToken, eventFolderName, findOrCreateFolder, getThumbnail } from "./drive.ts";
+import { accessToken, eventFolderName, findOrCreateFolder, getThumbnail, uploadSmallFile } from "./drive.ts";
 
 Deno.test("event folder uses the Cyprus date, activity and location", () => {
   assertEquals(
@@ -114,4 +114,32 @@ Deno.test("thumbnails are fetched through the app's Drive access at the requeste
     globalThis.fetch = realFetch;
   }
   assertEquals(imageRequests, [{ url: "https://lh3.googleusercontent.com/drive-storage/abc=s480", auth: "Bearer <token>" }]);
+});
+
+Deno.test("small files are uploaded to the folder in one multipart request", async () => {
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_ID", "client-id");
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_SECRET", "client-secret");
+  Deno.env.set("GOOGLE_OAUTH_REFRESH_TOKEN", "refresh-token");
+
+  const realFetch = globalThis.fetch;
+  let sent: { url: URL; type: string | null; body: string } | null = null;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.hostname === "oauth2.googleapis.com") return Response.json({ access_token: "a", expires_in: 3600 });
+    sent = { url, type: new Headers(init?.headers).get("Content-Type"), body: await new Response(init?.body).text() };
+    return Response.json({ id: "photo-1" });
+  };
+  try {
+    assertEquals(await uploadSmallFile("folder-1", "_event-photo.jpg", "image/jpeg", new TextEncoder().encode("JPEGDATA")), "photo-1");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  const request = sent!;
+  assertEquals(request.url.pathname, "/upload/drive/v3/files");
+  assertEquals(request.url.searchParams.get("uploadType"), "multipart");
+  assertEquals(request.url.searchParams.get("supportsAllDrives"), "true");
+  const boundary = request.type!.match(/boundary=(.+)$/)![1];
+  assertEquals(request.body.includes(`{"name":"_event-photo.jpg","parents":["folder-1"]}`), true);
+  assertEquals(request.body.includes("Content-Type: image/jpeg\r\n\r\nJPEGDATA\r\n"), true);
+  assertEquals(request.body.endsWith(`--${boundary}--`), true);
 });

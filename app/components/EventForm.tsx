@@ -48,7 +48,7 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
 
   const photoUrl = useMemo(() => photo ? URL.createObjectURL(photo) : null, [photo]);
   useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
-  const currentCover = event && !removePhoto ? eventCoverUrl(supabase, event, event.cover?.drive_file_id, 800) : null;
+  const currentCover = event && !removePhoto ? eventCoverUrl(event, event.cover?.drive_file_id, 800) : null;
   const preview = photoUrl ?? currentCover;
 
   async function choosePhoto(file: File | undefined) {
