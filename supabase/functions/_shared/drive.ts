@@ -1,5 +1,5 @@
-// Google Drive access as a staff account (Content manager of the albums Shared Drive), authorised once via OAuth.
-// With the drive.file scope the app only sees the folders and files it created itself.
+// Google Drive access as a staff account (Content manager of the albums Shared Drive), authorised once via OAuth
+// with the full Drive scope (drive.file cannot use a Shared Drive the app didn't create).
 import { admin, type EventRow } from "./db.ts";
 
 const DRIVE = "https://www.googleapis.com/drive/v3";
@@ -50,7 +50,13 @@ export async function accessToken(): Promise<string> {
   return body.access_token;
 }
 
-async function drive(path: string, init: RequestInit = {}, params: Record<string, string> = {}): Promise<Response> {
+/** Calls the Drive API. Any error status throws, except 404 when `allowNotFound` is set. */
+async function drive(
+  path: string,
+  init: RequestInit = {},
+  params: Record<string, string> = {},
+  { allowNotFound = false } = {},
+): Promise<Response> {
   const url = new URL(path.startsWith("http") ? path : `${DRIVE}${path}`);
   url.searchParams.set("supportsAllDrives", "true");
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
@@ -60,7 +66,9 @@ async function drive(path: string, init: RequestInit = {}, params: Record<string
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json; charset=UTF-8");
 
   const res = await fetch(url, { ...init, headers });
-  if (!res.ok && res.status !== 404) throw new Error(`Drive ${init.method ?? "GET"} ${url.pathname} failed: ${res.status} ${await res.text()}`);
+  if (!res.ok && !(allowNotFound && res.status === 404)) {
+    throw new Error(`Drive ${init.method ?? "GET"} ${url.pathname} failed: ${res.status} ${await res.text()}`);
+  }
   return res;
 }
 
@@ -93,7 +101,8 @@ export async function findOrCreateFolder(name: string, parentId: string): Promis
     method: "POST",
     body: JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parentId] }),
   }, { fields: "id" });
-  const createdId: string = (await created.json()).id;
+  const createdId: string | undefined = (await created.json()).id;
+  if (!createdId) throw new Error(`Drive did not return an ID for the new folder "${name}".`);
 
   const [oldest] = await listFolders(name, parentId);
   if (oldest && oldest !== createdId) {
@@ -122,7 +131,15 @@ export async function ensureEventFolder(event: EventRow): Promise<string> {
   if (event.drive_folder_id) return event.drive_folder_id;
 
   const name = eventFolderName(event);
-  const yearFolder = await findOrCreateFolder(name.slice(0, 4), sharedDriveId());
+  let yearFolder: string;
+  try {
+    yearFolder = await findOrCreateFolder(name.slice(0, 4), sharedDriveId());
+  } catch (error) {
+    throw new Error(
+      `Cannot create folders in the Shared Drive "${sharedDriveId()}". Check AZO_SHARED_DRIVE_ID, that the authorised ` +
+        `account is a Content manager of that Shared Drive, and that it consented with the full Drive scope. ${error}`,
+    );
+  }
   const folderId = await findOrCreateFolder(name, yearFolder);
 
   const { data, error } = await admin()
@@ -170,7 +187,7 @@ export async function startResumableUpload(opts: {
 }
 
 export async function getFile(fileId: string): Promise<DriveFile | null> {
-  const res = await drive(`/files/${encodeURIComponent(fileId)}`, {}, { fields: "id,name,mimeType,size,parents" });
+  const res = await drive(`/files/${encodeURIComponent(fileId)}`, {}, { fields: "id,name,mimeType,size,parents" }, { allowNotFound: true });
   return res.status === 404 ? null : await res.json();
 }
 
@@ -183,6 +200,6 @@ export async function setPublicLink(fileId: string, isPublic: boolean): Promise<
       body: JSON.stringify({ type: "anyone", role: "reader", allowFileDiscovery: false }),
     }, { fields: "id" });
   } else {
-    await drive(`/files/${id}/permissions/anyoneWithLink`, { method: "DELETE" });
+    await drive(`/files/${id}/permissions/anyoneWithLink`, { method: "DELETE" }, {}, { allowNotFound: true });
   }
 }

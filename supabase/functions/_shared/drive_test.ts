@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { accessToken, eventFolderName, findOrCreateFolder } from "./drive.ts";
 
 Deno.test("event folder uses the Cyprus date, activity and location", () => {
@@ -69,4 +69,26 @@ Deno.test("a folder created at the same moment as another is trashed in favour o
     "GET /drive/v3/files",
     'PATCH /drive/v3/files/ours {"trashed":true}',
   ]);
+});
+
+Deno.test("a folder is never created without its parent when Drive can't find the Shared Drive", async () => {
+  Deno.env.set("AZO_SHARED_DRIVE_ID", "shared-drive");
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_ID", "client-id");
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_SECRET", "client-secret");
+  Deno.env.set("GOOGLE_OAUTH_REFRESH_TOKEN", "refresh-token");
+
+  const realFetch = globalThis.fetch;
+  const methods: string[] = [];
+  globalThis.fetch = (input, init) => {
+    const url = new URL(String(input));
+    if (url.hostname === "oauth2.googleapis.com") return Promise.resolve(Response.json({ access_token: "a", expires_in: 3600 }));
+    methods.push(init?.method ?? "GET");
+    return Promise.resolve(Response.json({ error: { code: 404, message: "Shared drive not found: shared-drive" } }, { status: 404 }));
+  };
+  try {
+    await assertRejects(() => findOrCreateFolder("2026", "shared-drive"), Error, "404");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assertEquals(methods, ["GET"]);
 });
