@@ -105,7 +105,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
       if (photo) await uploadEventCover(supabase, saved, photo);
       else if (removePhoto) await clearEventCover(supabase, saved);
     } catch (photoError) {
-      warning = `Event saved, but the photo could not be updated: ${photoError instanceof Error ? photoError.message : String(photoError)}. Use Edit details to try again.`;
+      const reason = (photoError instanceof Error ? photoError.message : String(photoError)).replace(/\.+$/, "");
+      warning = `Event saved, but the photo could not be updated: ${reason}. Use Edit details to try again.`;
     }
 
     const { data: fresh } = await supabase.from("events").select(`*, ${coverMediaJoin}`).eq("id", saved.id).single();

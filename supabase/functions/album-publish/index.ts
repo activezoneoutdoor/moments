@@ -28,4 +28,4 @@ serveJson(async (req, body) => {
   if (updateError) throw updateError;
 
   return { albumStatus, shared: publish ? (media ?? []).filter((item) => item.status === "approved").length : 0 };
-});
+}, { exposeErrors: true });

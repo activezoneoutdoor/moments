@@ -39,3 +39,16 @@ Deno.test("a handler may answer with its own Response, which gets CORS headers",
   assertEquals(res.headers.get("Access-Control-Allow-Origin"), "*");
   assertEquals(new Uint8Array(await res.arrayBuffer()), new Uint8Array([1, 2, 3]));
 });
+
+Deno.test("staff-only functions return the real error message", async () => {
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    const dbError = { message: 'column events.cover_drive_file_id does not exist', code: "42703" };
+    const res = await handleJson(() => Promise.reject(dbError), { exposeErrors: true })(post({}));
+    assertEquals(res.status, 500);
+    assertEquals(await res.json(), { error: "Server error: column events.cover_drive_file_id does not exist" });
+  } finally {
+    console.error = quiet;
+  }
+});

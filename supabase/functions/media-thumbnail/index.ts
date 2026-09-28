@@ -17,4 +17,4 @@ serveJson(async (req, body) => {
   return new Response(thumbnail.bytes, {
     headers: { "Content-Type": thumbnail.type, "Cache-Control": "private, max-age=3600" },
   });
-});
+}, { exposeErrors: true });
