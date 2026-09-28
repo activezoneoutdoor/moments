@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { eventCoverUrl } from "@/lib/covers";
 import { coverMediaJoin, driveThumbnail, formatEventDate, isVideo, publicEventColumns, type AzoEvent, type Media } from "@/lib/events";
-import { PublicShell } from "../components/Shell";
+import { PublicShell, publicHomeUrl } from "../components/Shell";
 import { Lightbox } from "../components/Lightbox";
 
 export default function EventPage() {
@@ -33,7 +33,7 @@ export default function EventPage() {
 
   if (event === undefined) return <PublicShell><p className="empty-state">Loading…</p></PublicShell>;
   if (event === null) {
-    return <PublicShell><div className="empty-panel"><p className="eyebrow">EVENT</p><h1>Event not found.</h1><p><a href="../events/">See all events</a></p></div></PublicShell>;
+    return <PublicShell><div className="empty-panel"><p className="eyebrow">EVENT</p><h1>Event not found.</h1><p><a href={publicHomeUrl}>See all events</a></p></div></PublicShell>;
   }
 
   const mapUrl = event.lat != null && event.lng != null
