@@ -7,7 +7,7 @@ import { StaffTopbar } from "./components/Shell";
 export default function Home() {
   const { supabase, session, checking, notice, signIn, signOut } = useStaffSession();
 
-  if (checking) return <main className="loading-shell"><span className="brand-mark">AZO</span><p>Opening AZO Studio…</p></main>;
+  if (checking) return <main className="loading-shell"><span className="brand-mark">AZO</span><p>Opening AZO Moments…</p></main>;
 
   if (!session || !supabase) {
     return (
@@ -25,11 +25,11 @@ export default function Home() {
           <p className="access-note"><span className="lock-icon">●</span> Sign in with your Active Zone Outdoor Google Workspace account</p>
           <p className="domain-note">Access is limited to <strong>@{allowedDomain}</strong></p>
         </section>
-        <aside className="visual-panel" aria-label="Studio introduction">
+        <aside className="visual-panel" aria-label="AZO Moments introduction">
           <div className="sun"></div>
           <div className="mountain mountain-back"></div>
           <div className="mountain mountain-front"></div>
-          <div className="photo-caption"><span>AZO STUDIO · EVENTS & ALBUMS</span><b>Stories made to be shared.</b></div>
+          <div className="photo-caption"><span>AZO MOMENTS · EVENTS & ALBUMS</span><b>Stories made to be shared.</b></div>
           <div className="image-credit">ACTIVE ZONE OUTDOOR · CYPRUS</div>
         </aside>
       </main>
@@ -43,7 +43,7 @@ export default function Home() {
     <main className="workspace-shell">
       <StaffTopbar session={session} onSignOut={signOut} />
       <section className="welcome">
-        <p className="eyebrow">AZO STUDIO · YOUR WORKSPACE</p>
+        <p className="eyebrow">AZO MOMENTS · YOUR WORKSPACE</p>
         <h1>Good to have you here{firstName ? `, ${firstName}` : ""}.</h1>
         <p>Create events, share one upload link per activity, and publish the best photos and videos.</p>
       </section>

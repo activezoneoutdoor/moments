@@ -31,7 +31,7 @@ export function useStaffSession() {
         setNotice("");
       } else {
         setSession(null);
-        setNotice(`This studio is limited to @${allowedDomain} accounts.`);
+        setNotice(`AZO Moments is limited to @${allowedDomain} accounts.`);
         window.setTimeout(() => { void supabase.auth.signOut(); }, 0);
       }
     };

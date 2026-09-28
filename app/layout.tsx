@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./styles.css";
 
 export const metadata: Metadata = {
-  title: "AZO Studio | Active Zone Outdoor",
+  title: "AZO Moments | Active Zone Outdoor",
   description: "Active Zone Outdoor events, participant photo uploads and published albums.",
 };
 

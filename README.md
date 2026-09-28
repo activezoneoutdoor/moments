@@ -1,6 +1,6 @@
-# AZO Studio | Active Zone Outdoor
+# AZO Moments | Active Zone Outdoor
 
-AZO Studio lists Active Zone Outdoor events (date, location, leader, partner groups, group size) and collects each event's photos and videos from participants. Staff create an event and share its upload link, for example in the group chat. Participants upload without an account, and the files go straight into an automatically named folder in a Google Workspace Shared Drive, such as `2026/2026-09-27_SUP_Ayia-Napa`. Staff approve or hide uploads and publish the album on the event's public page.
+AZO Moments lists Active Zone Outdoor events (date, location, leader, partner groups, group size) and collects each event's photos and videos from participants. Staff create an event and share its upload link, for example in the group chat. Participants upload without an account, and the files go straight into an automatically named folder in a Google Workspace Shared Drive, such as `2026/2026-09-27_SUP_Ayia-Napa`. Staff approve or hide uploads and publish the album on the event's public page.
 
 Everything runs on free tiers: the static site on GitHub Pages, data and sign-in on Supabase, and small Supabase Edge Functions that talk to Google Drive. Media never passes through Supabase. It is stored in the Workspace's pooled Drive storage and uploaded from the browser directly to Google.
 
@@ -72,7 +72,7 @@ supabase functions deploy album-publish --no-verify-jwt
 3. From the repository folder, run `npm install`, then `npm run dev`.
 4. Open [http://localhost:3000](http://localhost:3000) and sign in with an `@activezoneoutdoor.cy` Google Workspace account.
 
-The app requests Google with `hd=activezoneoutdoor.cy` to guide account selection, then checks the returned account email before showing AZO Studio. Supabase Auth's Before User Created hook enforces the domain for new accounts. The database's Row Level Security policies apply the same domain check to every staff write. Participants never sign in; the upload link token is their only access.
+The app requests Google with `hd=activezoneoutdoor.cy` to guide account selection, then checks the returned account email before showing AZO Moments. Supabase Auth's Before User Created hook enforces the domain for new accounts. The database's Row Level Security policies apply the same domain check to every staff write. Participants never sign in; the upload link token is their only access.
 
 ## GitHub Pages deployment
 
@@ -89,4 +89,4 @@ The workflow in `.github/workflows/pages.yml` builds and deploys this repository
 5. **Commit and push to `main`.** Make sure the commit includes `package-lock.json` and `.github/workflows/pages.yml`. Pushing to `main` starts the deploy automatically.
 6. **Check the result.** In the repository, open **Actions**, select the latest **Deploy to GitHub Pages** run, and wait for both build and deploy jobs to finish successfully. The site will be at [https://moments.activezoneoutdoor.cy/](https://moments.activezoneoutdoor.cy/).
 
-The workflow uses the custom domain's root path; no `/studio` URL prefix or manual build upload is needed.
+The workflow uses the custom domain's root path; no `/moments` URL prefix or manual build upload is needed.

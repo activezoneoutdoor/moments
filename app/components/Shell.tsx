@@ -3,8 +3,8 @@ import type { Session } from "@supabase/supabase-js";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-export function Wordmark({ label = "AZO STUDIO" }: { label?: string }) {
-  return <a className="wordmark" href={`${basePath}/`} aria-label="AZO Studio home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>{label}</i></span></a>;
+export function Wordmark({ label = "AZO MOMENTS" }: { label?: string }) {
+  return <a className="wordmark" href={`${basePath}/`} aria-label="AZO Moments home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>{label}</i></span></a>;
 }
 
 export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
