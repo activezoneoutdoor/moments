@@ -1,10 +1,15 @@
+"use client";
+
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { useIsStaff } from "@/lib/auth";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+export const publicHomeUrl = `${basePath}/`;
+export const adminUrl = `${basePath}/admin/`;
 
-export function Wordmark({ label = "AZO MOMENTS" }: { label?: string }) {
-  return <a className="wordmark" href={`${basePath}/`} aria-label="AZO Moments home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>{label}</i></span></a>;
+export function Wordmark({ label = "AZO MOMENTS", href = publicHomeUrl }: { label?: string; href?: string }) {
+  return <a className="wordmark" href={href} aria-label="AZO Moments home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>{label}</i></span></a>;
 }
 
 export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
@@ -15,9 +20,9 @@ export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOu
 
   return (
     <header className="topbar">
-      <Wordmark />
+      <Wordmark label="ADMIN" href={adminUrl} />
       <div className="account">
-        <a className="topbar-link" href={`${basePath}/events/`}>Public events ↗</a>
+        <a className="topbar-link" href={publicHomeUrl}>Public site ↗</a>
         {avatarUrl ? <img className="avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span className="avatar">{fullName[0]?.toUpperCase() ?? "A"}</span>}
         <span className="account-details"><span className="account-name" title={fullName}>{fullName}</span><span className="account-email" title={session.user.email ?? undefined}>{session.user.email}</span></span>
         <button className="sign-out" onClick={onSignOut}>Sign out</button>
@@ -27,11 +32,16 @@ export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOu
 }
 
 export function PublicShell({ children }: { children: ReactNode }) {
+  const isStaff = useIsStaff();
+
   return (
     <main className="workspace-shell">
       <header className="topbar">
         <Wordmark label="EVENTS & ALBUMS" />
-        <nav className="account"><a className="topbar-link" href={`${basePath}/events/`}>All events</a></nav>
+        <nav className="account public-nav">
+          <a className="topbar-link" href={publicHomeUrl}>Events</a>
+          <a className={isStaff ? "admin-link staff" : "admin-link"} href={adminUrl}>{isStaff ? "Admin" : "Staff sign in"}</a>
+        </nav>
       </header>
       {children}
       <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>

@@ -83,3 +83,14 @@ function clearStoredSession() {
     // Storage unavailable: there is no stored session to clear.
   }
 }
+
+/** Whether this browser holds an Active Zone Outdoor staff session (read locally, no sign-in prompt). */
+export function useIsStaff(): boolean {
+  const [isStaff, setIsStaff] = useState(false);
+  useEffect(() => {
+    void getSupabaseBrowserClient()?.auth.getSession().then(({ data }) => {
+      setIsStaff(data.session?.user.email?.trim().toLowerCase().endsWith(`@${allowedDomain}`) ?? false);
+    });
+  }, []);
+  return isStaff;
+}
