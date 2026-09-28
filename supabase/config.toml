@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.media-thumbnail]
 verify_jwt = false
+
+[functions.event-photo]
+verify_jwt = false

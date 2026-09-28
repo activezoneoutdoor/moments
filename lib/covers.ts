@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { driveThumbnail, type AzoEvent } from "@/lib/events";
+import { callFunction, driveThumbnail, type AzoEvent } from "@/lib/events";
 
-const BUCKET = "event-covers";
 const MAX_SIDE = 1920;
 
 /** Scales a photo down to at most 1920px on its longest side and re-encodes it as JPEG. */
@@ -26,38 +25,37 @@ export async function resizeImage(file: File, maxSide = MAX_SIDE): Promise<Blob>
   ));
 }
 
-/** Uploads a staff-chosen event photo (already resized); it replaces any previous photo or album cover. */
-export async function uploadEventCover(supabase: SupabaseClient, event: Pick<AzoEvent, "id" | "cover_image_path">, blob: Blob): Promise<string> {
-  // A new name each time, so browsers and the CDN never show a cached older photo.
-  const path = `${event.id}/${Date.now()}.jpg`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
-  if (error) throw error;
-
-  const { error: updateError } = await supabase.from("events").update({ cover_image_path: path, cover_media_id: null }).eq("id", event.id);
-  if (updateError) throw updateError;
-
-  if (event.cover_image_path) await supabase.storage.from(BUCKET).remove([event.cover_image_path]);
-  return path;
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
+  return btoa(binary);
 }
 
-/** Removes the uploaded event photo. With `albumMediaId`, the album photo becomes the event photo instead. */
-export async function clearEventCover(
-  supabase: SupabaseClient,
-  event: Pick<AzoEvent, "id" | "cover_image_path">,
-  albumMediaId: string | null = null,
-): Promise<void> {
-  const { error } = await supabase.from("events").update({ cover_image_path: null, cover_media_id: albumMediaId }).eq("id", event.id);
-  if (error) throw error;
-  if (event.cover_image_path) await supabase.storage.from(BUCKET).remove([event.cover_image_path]);
+/** Saves a staff-chosen event photo (already resized) in the event's Drive folder; it replaces any previous photo. */
+export async function uploadEventCover(supabase: SupabaseClient, event: Pick<AzoEvent, "id">, blob: Blob): Promise<void> {
+  const image = toBase64(new Uint8Array(await blob.arrayBuffer()));
+  await callFunction(supabase, "event-photo", { eventId: event.id, action: "set", image });
 }
 
-/** The event photo: the uploaded one, else the chosen album photo, else none. */
+/** Removes the event photo. With `albumMediaId`, that album photo becomes the event photo instead. */
+export async function clearEventCover(supabase: SupabaseClient, event: Pick<AzoEvent, "id">, albumMediaId: string | null = null): Promise<void> {
+  await callFunction(supabase, "event-photo", { eventId: event.id, action: "remove", albumMediaId });
+}
+
+/** Turns link sharing of the event photo off when archiving and back on when restoring. */
+export async function setEventPhotoShared(supabase: SupabaseClient, event: Pick<AzoEvent, "id">, shared: boolean): Promise<void> {
+  await callFunction(supabase, "event-photo", { eventId: event.id, action: shared ? "share" : "unshare" });
+}
+
+/**
+ * The event photo at the requested width: the photo saved in Drive (always shared by link), else the chosen
+ * album photo when its Drive file ID is known (public once the album is published), else none.
+ */
 export function eventCoverUrl(
-  supabase: SupabaseClient,
-  event: Pick<AzoEvent, "cover_image_path">,
-  coverDriveFileId?: string | null,
+  event: Pick<AzoEvent, "cover_drive_file_id">,
+  albumCoverDriveFileId?: string | null,
   width = 1200,
 ): string | null {
-  if (event.cover_image_path) return supabase.storage.from(BUCKET).getPublicUrl(event.cover_image_path).data.publicUrl;
-  return coverDriveFileId ? driveThumbnail(coverDriveFileId, width) : null;
+  const fileId = event.cover_drive_file_id ?? albumCoverDriveFileId;
+  return fileId ? driveThumbnail(fileId, width) : null;
 }

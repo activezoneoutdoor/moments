@@ -53,7 +53,7 @@ function EventGrid({ supabase, title, eyebrow, events, empty }: GridProps) {
           {events.map((e) => (
             <a key={e.id} className="event-card" href={eventPageUrl(e.slug)}>
               <div className="event-cover">
-                <CoverImage url={supabase && eventCoverUrl(supabase, e, e.cover?.drive_file_id, 800)} label={e.activity} />
+                <CoverImage url={eventCoverUrl(e, e.cover?.drive_file_id, 800)} label={e.activity} />
                 {e.status === "cancelled" && <span className="pill status-cancelled">Cancelled</span>}
                 {e.album_status === "published" && <span className="pill status-published">Album</span>}
               </div>

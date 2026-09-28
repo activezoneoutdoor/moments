@@ -116,7 +116,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
 
 function EventThumb({ supabase, event }: { supabase: SupabaseClient; event: AzoEvent }) {
   // An album photo used as the event photo may not be public yet, so it comes through the thumbnail function.
-  const albumCover = useStaffThumbnail(supabase, event.cover_image_path ? null : event.cover_media_id, 160);
-  const url = eventCoverUrl(supabase, event) ?? albumCover;
+  const albumCover = useStaffThumbnail(supabase, event.cover_drive_file_id ? null : event.cover_media_id, 160);
+  const url = eventCoverUrl(event) ?? albumCover;
   return <span className="event-thumb">{url && <img src={url} alt="" loading="lazy" />}</span>;
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clearEventCover, eventCoverUrl } from "@/lib/covers";
+import { clearEventCover, eventCoverUrl, setEventPhotoShared } from "@/lib/covers";
 import { useStaffThumbnail } from "@/lib/thumbnails";
 import {
   callFunction, coverMediaJoin, driveFolderUrl, eventPageUrl, formatEventDate, isVideo, uploadLinkUrl,
@@ -89,6 +89,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   // Drive link sharing is removed, the event is hidden and uploads stop.
   const archive = () => run("archive", async () => {
     if (event.album_status === "published") await callFunction(supabase, "album-publish", { eventId: event.id, publish: false });
+    if (event.cover_drive_file_id) await setEventPhotoShared(supabase, event, false);
     const { error } = await supabase.from("events").update({ status: "archived" }).eq("id", event.id);
     if (error) throw error;
     const { error: linkError } = await supabase.from("event_upload_links").update({ open: false }).eq("event_id", event.id);
@@ -102,6 +103,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const restore = () => run("restore", async () => {
     const { error } = await supabase.from("events").update({ status: "draft" }).eq("id", event.id);
     if (error) throw error;
+    if (event.cover_drive_file_id) await setEventPhotoShared(supabase, event, true);
     await refreshEvent();
     setMessage("Event restored as a draft. Publish it and its album again when ready.");
   });
@@ -135,8 +137,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const pendingIds = media.filter((m) => m.status === "pending").map((m) => m.id);
 
   // An album photo used as the event photo may not be public yet, so staff load it through the thumbnail function.
-  const albumCover = useStaffThumbnail(supabase, event.cover_image_path ? null : event.cover_media_id, 1200);
-  const coverUrl = eventCoverUrl(supabase, event) ?? albumCover;
+  const albumCover = useStaffThumbnail(supabase, event.cover_drive_file_id ? null : event.cover_media_id, 1200);
+  const coverUrl = eventCoverUrl(event) ?? albumCover;
   const archived = event.status === "archived";
   const albumIsPublic = event.album_status === "published";
   const confirmed = !albumIsPublic || confirmTitle.trim() === event.title.trim();
