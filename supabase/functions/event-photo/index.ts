@@ -60,4 +60,4 @@ serveJson(async (req, body) => {
     default:
       throw new HttpError(400, "Unknown action.");
   }
-});
+}, { exposeErrors: true });

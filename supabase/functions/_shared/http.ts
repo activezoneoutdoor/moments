@@ -30,8 +30,20 @@ export function json(body: unknown, status = 200): Response {
 
 type Handler = (req: Request, body: Record<string, unknown>) => Promise<unknown>;
 
+type Options = {
+  /** Staff-only functions return the real error message so staff can fix setup problems; public ones stay generic. */
+  exposeErrors?: boolean;
+};
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  // Supabase query errors are plain objects with a message.
+  if (error && typeof error === "object" && "message" in error) return String((error as { message: unknown }).message);
+  return String(error);
+}
+
 /** Wraps a JSON POST handler with CORS preflight and error handling. */
-export function handleJson(handler: Handler): (req: Request) => Promise<Response> {
+export function handleJson(handler: Handler, { exposeErrors = false }: Options = {}): (req: Request) => Promise<Response> {
   return async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -48,13 +60,13 @@ export function handleJson(handler: Handler): (req: Request) => Promise<Response
     } catch (error) {
       if (error instanceof HttpError) return json({ error: error.message }, error.status);
       console.error(error);
-      return json({ error: "Something went wrong. Please try again." }, 500);
+      return json({ error: exposeErrors ? `Server error: ${errorMessage(error)}` : "Something went wrong. Please try again." }, 500);
     }
   };
 }
 
-export function serveJson(handler: Handler) {
-  Deno.serve(handleJson(handler));
+export function serveJson(handler: Handler, options?: Options) {
+  Deno.serve(handleJson(handler, options));
 }
 
 export function requireString(body: Record<string, unknown>, key: string, maxLength = 500): string {
