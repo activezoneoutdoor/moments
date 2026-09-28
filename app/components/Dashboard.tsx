@@ -7,6 +7,7 @@ import { useStaffThumbnail } from "@/lib/thumbnails";
 import { coverMediaJoin, formatEventDate, type AzoEvent } from "@/lib/events";
 import { EventForm } from "./EventForm";
 import { EventPanel } from "./EventPanel";
+import { useYearFilter, YearChips } from "./YearChips";
 
 type Mode = { kind: "view" } | { kind: "new" } | { kind: "edit"; event: AzoEvent };
 
@@ -42,7 +43,11 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   const upcoming = active.filter(isUpcoming).reverse();
   const past = active.filter((e) => !isUpcoming(e));
   const archived = events.filter((e) => e.status === "archived");
-  const list = { upcoming, past, archived }[tab];
+  const tabEvents = { upcoming, past, archived }[tab];
+  // Year chips follow the tab's order: upcoming counts forward, past and archived backward.
+  const yearFilter = useYearFilter(tabEvents);
+  const list = yearFilter.filtered;
+  const chooseTab = (next: typeof tab) => { setTab(next); yearFilter.setYear(null); };
   const selected = events.find((e) => e.id === selectedId) ?? null;
 
   const replaceEvent = (next: AzoEvent) => {
@@ -60,10 +65,11 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
       <div className="dashboard-grid">
         <aside className="event-list">
           <div className="filter-tabs" role="tablist">
-            <button role="tab" aria-selected={tab === "upcoming"} className={tab === "upcoming" ? "active" : ""} onClick={() => setTab("upcoming")}>Upcoming <span>{upcoming.length}</span></button>
-            <button role="tab" aria-selected={tab === "past"} className={tab === "past" ? "active" : ""} onClick={() => setTab("past")}>Past <span>{past.length}</span></button>
-            {archived.length > 0 && <button role="tab" aria-selected={tab === "archived"} className={tab === "archived" ? "active" : ""} onClick={() => setTab("archived")}>Archived <span>{archived.length}</span></button>}
+            <button role="tab" aria-selected={tab === "upcoming"} className={tab === "upcoming" ? "active" : ""} onClick={() => chooseTab("upcoming")}>Upcoming <span>{upcoming.length}</span></button>
+            <button role="tab" aria-selected={tab === "past"} className={tab === "past" ? "active" : ""} onClick={() => chooseTab("past")}>Past <span>{past.length}</span></button>
+            {archived.length > 0 && <button role="tab" aria-selected={tab === "archived"} className={tab === "archived" ? "active" : ""} onClick={() => chooseTab("archived")}>Archived <span>{archived.length}</span></button>}
           </div>
+          <YearChips {...yearFilter} onChange={yearFilter.setYear} />
           {list.length === 0 && <p className="empty-state">{{ upcoming: "No upcoming events. Create one to get an upload link.", past: "No past events yet.", archived: "No archived events." }[tab]}</p>}
           {list.map((e) => (
             <button key={e.id} className={`event-row${e.id === selectedId ? " selected" : ""}`} onClick={() => { setSelectedId(e.id); setMode({ kind: "view" }); }}>
