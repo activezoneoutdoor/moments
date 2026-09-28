@@ -3,7 +3,7 @@ import "./styles.css";
 
 export const metadata: Metadata = {
   title: "AZO Studio | Active Zone Outdoor",
-  description: "Manage contributor albums from Google Drive and Google Photos for the public Active Zone Outdoor gallery.",
+  description: "Active Zone Outdoor events, participant photo uploads and published albums.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
