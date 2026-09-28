@@ -51,6 +51,7 @@ The functions in `supabase/functions/` hold the Google credentials; the browser 
 | `upload-start` | Participant upload page | Checks the upload link, creates the event's Drive folder on first use, and opens a resumable Drive upload session for the browser |
 | `upload-finish` | Participant upload page | Confirms the file is in the event folder and records it for review |
 | `album-publish` | Staff dashboard | Publishes or unpublishes an album and syncs Drive link sharing, so only approved files are public |
+| `media-thumbnail` | Staff dashboard | Returns an upload's preview image through the app's Drive access, so staff browsers don't need Google cookies (which browsers often block for other sites) |
 
 Deploy with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
@@ -65,7 +66,7 @@ supabase secrets set \
 supabase functions deploy
 ```
 
-`supabase/config.toml` deploys all three with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+`supabase/config.toml` deploys all functions with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
 
 ### Troubleshooting uploads
 

@@ -32,3 +32,10 @@ Deno.test("the handler's result is returned as JSON", async () => {
   const res = await handleJson((_req, body) => Promise.resolve({ echo: body.name }))(post({ name: "Maria" }));
   assertEquals(await res.json(), { echo: "Maria" });
 });
+
+Deno.test("a handler may answer with its own Response, which gets CORS headers", async () => {
+  const res = await handleJson(() => Promise.resolve(new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "image/jpeg" } })))(post({}));
+  assertEquals(res.headers.get("Content-Type"), "image/jpeg");
+  assertEquals(res.headers.get("Access-Control-Allow-Origin"), "*");
+  assertEquals(new Uint8Array(await res.arrayBuffer()), new Uint8Array([1, 2, 3]));
+});

@@ -191,6 +191,21 @@ export async function getFile(fileId: string): Promise<DriveFile | null> {
   return res.status === 404 ? null : await res.json();
 }
 
+/**
+ * Fetches a file's preview image through the app's own Drive access, so staff browsers don't need
+ * Google cookies. Returns null when Drive has no preview yet (e.g. a video still processing).
+ */
+export async function getThumbnail(fileId: string, size: number): Promise<{ bytes: ArrayBuffer; type: string } | null> {
+  const res = await drive(`/files/${encodeURIComponent(fileId)}`, {}, { fields: "thumbnailLink" }, { allowNotFound: true });
+  if (res.status === 404) return null;
+  const link: string | undefined = (await res.json()).thumbnailLink;
+  if (!link) return null;
+
+  const image = await fetch(link.replace(/=s\d+$/, `=s${size}`), { headers: { Authorization: `Bearer ${await accessToken()}` } });
+  if (!image.ok) return null;
+  return { bytes: await image.arrayBuffer(), type: image.headers.get("Content-Type") ?? "image/jpeg" };
+}
+
 /** Makes a file viewable by anyone with its link (needed for the public album), or removes that access. */
 export async function setPublicLink(fileId: string, isPublic: boolean): Promise<void> {
   const id = encodeURIComponent(fileId);

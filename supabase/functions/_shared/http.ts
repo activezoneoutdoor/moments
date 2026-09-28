@@ -38,7 +38,13 @@ export function handleJson(handler: Handler): (req: Request) => Promise<Response
 
     try {
       const body = await req.json().catch(() => ({}));
-      return json(await handler(req, body ?? {}));
+      const result = await handler(req, body ?? {});
+      if (result instanceof Response) {
+        // Non-JSON answers (such as images) still need CORS headers for the browser to read them.
+        for (const [key, value] of Object.entries(corsHeaders)) result.headers.set(key, value);
+        return result;
+      }
+      return json(result);
     } catch (error) {
       if (error instanceof HttpError) return json({ error: error.message }, error.status);
       console.error(error);
