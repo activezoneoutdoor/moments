@@ -36,10 +36,10 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
    - Under **Clients → Create client**, choose **Web application**, name it "AZO Drive uploader", and add the authorised redirect URI `https://developers.google.com/oauthplayground`. Copy the client ID and client secret.
 3. **Authorise it once with a staff account.** Use a stable account that is a **Content manager** of the Shared Drive.
    - Open [OAuth Playground](https://developers.google.com/oauthplayground). Click ⚙ and tick **Use your own OAuth credentials**, then paste the client ID and secret.
-   - In **Step 1**, type the scope `https://www.googleapis.com/auth/drive.file` into the input box and click **Authorize APIs**. Sign in with that staff account.
+   - In **Step 1**, type the scope `https://www.googleapis.com/auth/drive` into the input box and click **Authorize APIs**. Sign in with that staff account.
    - In **Step 2**, click **Exchange authorization code for tokens**, then copy the **Refresh token**.
 
-   `drive.file` limits the app to the folders and files it creates itself; the rest of your Drive stays invisible to it. The files belong to the Shared Drive, not to that account. If the account is later suspended or removes the app's access, uploads fail with an "authorisation expired or was revoked" error. Redo this step with another staff account and update the secret. If the Shared Drive refuses folder creation under `drive.file`, redo this step with the scope `https://www.googleapis.com/auth/drive`. No code change is needed.
+   Use the full `drive` scope: the narrower `drive.file` scope can't create folders in a Shared Drive the app didn't create. The files belong to the Shared Drive, not to that account. If the account is later suspended or removes the app's access, uploads fail with an "authorisation expired or was revoked" error. Redo this step with another staff account and update the secret.
 4. **Allow public album links.** Published albums share each approved file as "anyone with the link can view", so photos can be shown on the public page. In the Google Admin console, open **Apps → Google Workspace → Drive and Docs → Sharing settings** and allow sharing outside the organisation, at least for the organisational unit that owns the Shared Drive. In the Shared Drive's settings, allow people outside the organisation to access files. Unpublished and hidden uploads stay private.
 
 ## Edge Functions
@@ -68,6 +68,9 @@ supabase functions deploy
 `supabase/config.toml` deploys all three with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
 
 ### Troubleshooting uploads
+
+If an upload fails with "Cannot create folders in the Shared Drive" (visible in the `upload-start` logs), check `AZO_SHARED_DRIVE_ID`, that the authorised account is a Content manager of that Shared Drive, and that the refresh token was created with the full `https://www.googleapis.com/auth/drive` scope.
+
 
 If an upload fails with "Couldn't reach the upload service", the browser got no answer from `upload-start`:
 - In Supabase, open **Edge Functions → upload-start**: check that it exists and look at its **Logs**.
