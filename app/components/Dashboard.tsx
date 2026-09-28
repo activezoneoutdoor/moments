@@ -14,7 +14,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   const [pending, setPending] = useState<Record<string, number>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "view" });
-  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [tab, setTab] = useState<"upcoming" | "past" | "archived">("upcoming");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -37,9 +37,11 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const isUpcoming = (e: AzoEvent) => new Date(e.ends_at ?? e.starts_at) >= startOfToday;
-  const upcoming = events.filter(isUpcoming).reverse();
-  const past = events.filter((e) => !isUpcoming(e));
-  const list = tab === "upcoming" ? upcoming : past;
+  const active = events.filter((e) => e.status !== "archived");
+  const upcoming = active.filter(isUpcoming).reverse();
+  const past = active.filter((e) => !isUpcoming(e));
+  const archived = events.filter((e) => e.status === "archived");
+  const list = { upcoming, past, archived }[tab];
   const selected = events.find((e) => e.id === selectedId) ?? null;
 
   const replaceEvent = (next: AzoEvent) => {
@@ -59,8 +61,9 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
           <div className="filter-tabs" role="tablist">
             <button role="tab" aria-selected={tab === "upcoming"} className={tab === "upcoming" ? "active" : ""} onClick={() => setTab("upcoming")}>Upcoming <span>{upcoming.length}</span></button>
             <button role="tab" aria-selected={tab === "past"} className={tab === "past" ? "active" : ""} onClick={() => setTab("past")}>Past <span>{past.length}</span></button>
+            {archived.length > 0 && <button role="tab" aria-selected={tab === "archived"} className={tab === "archived" ? "active" : ""} onClick={() => setTab("archived")}>Archived <span>{archived.length}</span></button>}
           </div>
-          {list.length === 0 && <p className="empty-state">{tab === "upcoming" ? "No upcoming events. Create one to get an upload link." : "No past events yet."}</p>}
+          {list.length === 0 && <p className="empty-state">{{ upcoming: "No upcoming events. Create one to get an upload link.", past: "No past events yet.", archived: "No archived events." }[tab]}</p>}
           {list.map((e) => (
             <button key={e.id} className={`event-row${e.id === selectedId ? " selected" : ""}`} onClick={() => { setSelectedId(e.id); setMode({ kind: "view" }); }}>
               <EventThumb url={eventCoverUrl(supabase, e, e.cover?.drive_file_id, 160)} />

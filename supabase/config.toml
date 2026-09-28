@@ -1,0 +1,12 @@
+# Settings for `supabase functions deploy`. The functions check access themselves
+# (upload token or staff session), so the gateway's JWT check is turned off.
+project_id = "moments"
+
+[functions.upload-start]
+verify_jwt = false
+
+[functions.upload-finish]
+verify_jwt = false
+
+[functions.album-publish]
+verify_jwt = false

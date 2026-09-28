@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type EventStatus = "draft" | "published" | "cancelled";
+export type EventStatus = "draft" | "published" | "cancelled" | "archived";
 export type AlbumStatus = "none" | "collecting" | "published";
 export type MediaStatus = "pending" | "approved" | "hidden";
 
@@ -97,9 +97,15 @@ export function eventPageUrl(slug: string): string {
 export async function callFunction<T>(supabase: SupabaseClient, name: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) {
-    const context = (error as { context?: Response }).context;
-    const detail = context ? await context.json().catch(() => null) : null;
-    throw new Error(detail?.error ?? error.message);
+    // The function answered with an error status: its JSON body carries a readable message.
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      const detail = await context.json().catch(() => null);
+      throw new Error(detail?.error ?? error.message);
+    }
+    // No readable answer at all: the request was blocked or the function is unreachable.
+    console.error(`Edge Function "${name}" could not be reached`, context ?? error);
+    throw new Error("Couldn't reach the upload service. Please try again in a moment; if it keeps failing, tell the event leader.");
   }
   return data as T;
 }

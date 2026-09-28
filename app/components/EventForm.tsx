@@ -134,7 +134,7 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
         <label className="span-2">Title<input required maxLength={200} value={form.title} onChange={set("title")} placeholder="Sunrise SUP at Konnos Bay" /></label>
         <label>Activity<input required list="activity-options" value={form.activity} onChange={set("activity")} placeholder="SUP" /></label>
         <datalist id="activity-options">{activities.map((a) => <option key={a} value={a} />)}</datalist>
-        <label>Status<select value={form.status} onChange={set("status")}><option value="draft">Draft (staff only)</option><option value="published">Published</option><option value="cancelled">Cancelled</option></select></label>
+        <label>Status<select value={form.status} onChange={set("status")}><option value="draft">Draft (staff only)</option><option value="published">Published</option><option value="cancelled">Cancelled</option>{event?.status === "archived" && <option value="archived">Archived</option>}</select></label>
         <label>Starts<input required type="datetime-local" value={form.starts_at} onChange={set("starts_at")} /></label>
         <label>Ends<input type="datetime-local" value={form.ends_at} min={form.starts_at} onChange={set("ends_at")} /></label>
         <label className="span-2">Location<input required value={form.location_name} onChange={set("location_name")} placeholder="Ayia Napa" /></label>

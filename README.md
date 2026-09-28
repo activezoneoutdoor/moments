@@ -25,6 +25,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 5. Run `supabase/migrations/20260927000000_restrict_workspace_signups.sql` in the Supabase SQL Editor. Then enable **Authentication → Hooks → Before User Created** and select `public.enforce_azo_workspace_signup`. This hook rejects account creation unless the account is a Google identity with the approved domain.
 6. Run `supabase/migrations/20260928000000_events_albums.sql` in the SQL Editor (or `supabase db push`). It creates `events`, `event_upload_links` and `media` with Row Level Security. Staff accounts can manage everything. The public can read only published events and the approved media of published albums. Upload tokens are never readable by the public.
 7. Run `supabase/migrations/20260929000000_event_cover_images.sql`. It adds event photos: a public Storage bucket `event-covers` that only staff can write to. Staff pick the photo in the event form; it is resized in the browser to at most 1920px (typically 200–500 KB). Alternatively, an approved album photo can be used as the event photo. Whichever was chosen last is shown.
+8. Run `supabase/migrations/20260930000000_archive_events.sql`. It adds the `archived` status. Staff archive an event from its panel instead of deleting it: the event and album leave the public site, Drive link sharing is removed, and the upload link closes. Media records, the Drive folder and the event photo are kept, and **Restore event** brings the event back as a draft.
 
 ## Google Drive setup (album storage)
 
@@ -61,12 +62,17 @@ supabase secrets set \
   GOOGLE_OAUTH_REFRESH_TOKEN=<refresh-token> \
   AZO_SHARED_DRIVE_ID=<shared-drive-id> \
   ALLOWED_ORIGINS=https://moments.activezoneoutdoor.cy,http://localhost:3000
-supabase functions deploy upload-start --no-verify-jwt
-supabase functions deploy upload-finish --no-verify-jwt
-supabase functions deploy album-publish --no-verify-jwt
+supabase functions deploy
 ```
 
-`--no-verify-jwt` lets anonymous participants call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+`supabase/config.toml` deploys all three with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+
+### Troubleshooting uploads
+
+If an upload fails with "Couldn't reach the upload service", the browser got no answer from `upload-start`:
+- In Supabase, open **Edge Functions → upload-start**: check that it exists and look at its **Logs**.
+- Redeploy with `supabase functions deploy` so `verify_jwt = false` from `supabase/config.toml` applies.
+- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://moments.activezoneoutdoor.cy`) to the `ALLOWED_ORIGINS` secret and redeploy.
 
 ## Run locally
 

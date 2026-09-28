@@ -8,11 +8,12 @@ export type EventRow = {
   activity: string;
   starts_at: string;
   location_name: string;
+  status: "draft" | "published" | "cancelled" | "archived";
   album_status: "none" | "collecting" | "published";
   drive_folder_id: string | null;
 };
 
-const eventColumns = "id, slug, title, activity, starts_at, location_name, album_status, drive_folder_id";
+const eventColumns = "id, slug, title, activity, starts_at, location_name, status, album_status, drive_folder_id";
 
 let adminClient: SupabaseClient | null = null;
 
@@ -35,7 +36,7 @@ export async function eventForUploadToken(token: string): Promise<EventRow> {
 
   const event = data?.events as unknown as EventRow | null;
   if (!data || !event) throw new HttpError(404, "This upload link is not valid.");
-  if (!data.open || (data.expires_at && new Date(data.expires_at) < new Date())) {
+  if (!data.open || event.status === "archived" || (data.expires_at && new Date(data.expires_at) < new Date())) {
     throw new HttpError(410, "This upload link is closed. Ask the event leader for a new one.");
   }
   return event;
