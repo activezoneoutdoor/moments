@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { accessToken, eventFolderName, findOrCreateFolder, getThumbnail, uploadSmallFile } from "./drive.ts";
+import { accessToken, eventFolderName, findOrCreateFolder, getThumbnail, listFolderMedia, setPublicLink, uploadSmallFile } from "./drive.ts";
 
 Deno.test("event folder uses the Cyprus date, activity and location", () => {
   assertEquals(
@@ -142,4 +142,52 @@ Deno.test("small files are uploaded to the folder in one multipart request", asy
   assertEquals(request.body.includes(`{"name":"_event-photo.jpg","parents":["folder-1"]}`), true);
   assertEquals(request.body.includes("Content-Type: image/jpeg\r\n\r\nJPEGDATA\r\n"), true);
   assertEquals(request.body.endsWith(`--${boundary}--`), true);
+});
+
+Deno.test("folder media includes subfolders and every page of results", async () => {
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_ID", "client-id");
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_SECRET", "client-secret");
+  Deno.env.set("GOOGLE_OAUTH_REFRESH_TOKEN", "refresh-token");
+
+  const realFetch = globalThis.fetch;
+  const queries: string[] = [];
+  globalThis.fetch = (input) => {
+    const url = new URL(String(input));
+    if (url.hostname === "oauth2.googleapis.com") return Promise.resolve(Response.json({ access_token: "a", expires_in: 3600 }));
+    const q = url.searchParams.get("q")!;
+    const page = url.searchParams.get("pageToken");
+    queries.push(`${q.slice(0, q.indexOf(" in parents"))}${page ? ` page=${page}` : ""}`);
+    if (q.startsWith("'event'") && !page) {
+      return Promise.resolve(Response.json({
+        nextPageToken: "p2",
+        files: [{ id: "a", name: "a.jpg", mimeType: "image/jpeg" }, { id: "sub", name: "GoPro", mimeType: "application/vnd.google-apps.folder" }],
+      }));
+    }
+    if (q.startsWith("'event'")) return Promise.resolve(Response.json({ files: [{ id: "b", name: "b.jpg", mimeType: "image/jpeg" }] }));
+    return Promise.resolve(Response.json({ files: [{ id: "c", name: "c.mp4", mimeType: "video/mp4" }] }));
+  };
+  try {
+    assertEquals((await listFolderMedia("event")).map((f) => f.id), ["a", "b", "c"]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assertEquals(queries, ["'event'", "'event' page=p2", "'sub'"]);
+});
+
+Deno.test("publishing a file that was deleted in Drive doesn't fail", async () => {
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_ID", "client-id");
+  Deno.env.set("GOOGLE_OAUTH_CLIENT_SECRET", "client-secret");
+  Deno.env.set("GOOGLE_OAUTH_REFRESH_TOKEN", "refresh-token");
+
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (input) => {
+    const url = new URL(String(input));
+    if (url.hostname === "oauth2.googleapis.com") return Promise.resolve(Response.json({ access_token: "a", expires_in: 3600 }));
+    return Promise.resolve(Response.json({ error: { code: 404, message: "File not found" } }, { status: 404 }));
+  };
+  try {
+    await setPublicLink("gone", true);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

@@ -31,6 +31,8 @@ serveJson(async (req, body) => {
     size,
     origin,
     description: uploaderName ? `Uploaded by ${uploaderName}` : undefined,
+    // Lets a Drive sync that runs before upload-finish recognise the file and credit the uploader.
+    appProperties: uploaderName ? { azo: "upload", uploader: uploaderName } : { azo: "upload" },
   });
   return { uploadUrl };
 });

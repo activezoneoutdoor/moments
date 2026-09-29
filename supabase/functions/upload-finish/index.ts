@@ -20,7 +20,9 @@ serveJson(async (_req, body) => {
     mime_type: file.mimeType,
     size: file.size ? Number(file.size) : null,
     uploader_name: uploaderName || null,
-  }, { onConflict: "drive_file_id", ignoreDuplicates: true });
+    source: "upload",
+    // A Drive sync may have recorded the file first; keep its review status but take the uploader's details.
+  }, { onConflict: "drive_file_id" });
   if (error) throw error;
 
   if (event.album_status === "none") {

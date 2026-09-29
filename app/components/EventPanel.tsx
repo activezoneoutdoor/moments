@@ -5,8 +5,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearEventCover, eventCoverUrl, setEventPhotoShared } from "@/lib/covers";
 import { useStaffThumbnail } from "@/lib/thumbnails";
 import {
-  callFunction, coverMediaJoin, driveFolderUrl, eventPageUrl, formatEventDate, isVideo, uploadLinkUrl,
-  type AzoEvent, type Media, type MediaStatus,
+  callFunction, coverMediaJoin, describeSync, driveFolderUrl, eventPageUrl, formatEventDate, isVideo, uploadLinkUrl,
+  type AzoEvent, type Media, type MediaStatus, type SyncSummary,
 } from "@/lib/events";
 
 type UploadLink = { token: string; open: boolean; expires_at: string | null };
@@ -33,6 +33,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const [message, setMessage] = useState("");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [warn, setWarn] = useState(false);
 
   const load = useCallback(async () => {
     const [linkResult, mediaResult] = await Promise.all([
@@ -48,10 +50,12 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   async function run(label: string, task: () => Promise<void>) {
     setBusy(label);
     setMessage("");
+    setWarn(false);
     try {
       await task();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
+      setWarn(true);
     } finally {
       setBusy("");
     }
@@ -61,6 +65,36 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
     const { data } = await supabase.from("events").select(`*, ${coverMediaJoin}`).eq("id", event.id).single();
     if (data) onChanged(data as AzoEvent);
   };
+
+  /**
+   * Brings the album in line with the event's Drive folder (files added, deleted or renamed there).
+   * Runs in the background when the event is opened, so the panel stays usable meanwhile.
+   */
+  const syncWithDrive = useCallback(async (quiet: boolean) => {
+    setSyncing(true);
+    try {
+      const summary = await callFunction<SyncSummary>(supabase, "album-sync", { eventId: event.id });
+      const changed = describeSync(summary);
+      if (changed) {
+        await load();
+        const { data } = await supabase.from("events").select(`*, ${coverMediaJoin}`).eq("id", event.id).single();
+        if (data) onChanged(data as AzoEvent);
+      }
+      const text = [changed || (quiet ? "" : "Already in sync with Drive."), summary.warning ?? ""].filter(Boolean).join(" ");
+      if (text) {
+        setMessage(text);
+        setWarn(!!summary.warning);
+      }
+    } catch (error) {
+      setMessage(`Couldn't sync with Drive: ${error instanceof Error ? error.message : String(error)}`);
+      setWarn(true);
+    } finally {
+      setSyncing(false);
+    }
+    // onChanged is recreated by the parent on every render; syncing once per opened event is intended.
+  }, [supabase, event.id, load]);
+
+  useEffect(() => { void syncWithDrive(true); }, [syncWithDrive]);
 
   /** Re-syncs Drive sharing so a published album only exposes approved files. */
   const syncPublishedAlbum = () => callFunction(supabase, "album-publish", { eventId: event.id, publish: true });
@@ -81,7 +115,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
   const togglePublish = () => run("publish", async () => {
     const publish = event.album_status !== "published";
     await callFunction(supabase, "album-publish", { eventId: event.id, publish });
-    await refreshEvent();
+    // Publishing syncs with Drive first, so the album's files may have changed.
+    await Promise.all([load(), refreshEvent()]);
     setMessage(publish ? "Album published." : "Album taken down.");
   });
 
@@ -167,7 +202,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
         </div>
         <div className="panel-actions">
           <button className="ghost-button" onClick={onEdit}>Edit details</button>
-          <button className="ghost-button" disabled={!!busy} onClick={() => run("refresh", async () => { await Promise.all([load(), refreshEvent()]); })}>Refresh</button>
+          <button className="ghost-button" disabled={!!busy || syncing} onClick={() => { setMessage(""); void syncWithDrive(false); }}>{syncing ? "Syncing…" : "Sync with Drive"}</button>
           {event.status !== "draft" && !archived && <a className="ghost-button" href={eventPageUrl(event.slug)} target="_blank" rel="noreferrer">Public page ↗</a>}
         </div>
       </div>
@@ -200,7 +235,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
         </div>
       </div>
       {event.album_status !== "published" && event.status === "draft" && counts.approved > 0 && <p className="form-hint">The album will be visible once the event is published too.</p>}
-      {message && <p className="panel-message" role="status">{message}</p>}
+      {message && <p className={warn ? "panel-message warn" : "panel-message"} role="status">{message}</p>}
 
       <div className="filter-tabs" role="tablist">
         {filters.map((f) => (
@@ -219,6 +254,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
               <a href={`https://drive.google.com/file/d/${item.drive_file_id}/view`} target="_blank" rel="noreferrer" className="media-thumb">
                 <StaffThumb supabase={supabase} media={item} />
                 {isVideo(item) && <span className="video-badge">▶ VIDEO</span>}
+                {item.source === "drive" && <span className="drive-badge" title="Added directly in the Drive folder">ADDED IN DRIVE</span>}
                 {event.cover_media_id === item.id && <span className="cover-badge">EVENT PHOTO</span>}
               </a>
               <figcaption>

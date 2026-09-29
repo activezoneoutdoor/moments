@@ -11,7 +11,7 @@ export type DriveFile = { id: string; name: string; mimeType: string; size?: str
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-function sharedDriveId(): string {
+export function sharedDriveId(): string {
   const id = Deno.env.get("AZO_SHARED_DRIVE_ID");
   if (!id) throw new Error("AZO_SHARED_DRIVE_ID is not set.");
   return id;
@@ -87,6 +87,74 @@ async function listFolders(name: string, parentId: string): Promise<string[]> {
 
 export async function trash(fileId: string): Promise<void> {
   await drive(`/files/${encodeURIComponent(fileId)}`, { method: "PATCH", body: JSON.stringify({ trashed: true }) }, { fields: "id" });
+}
+
+/** Returns the oldest folder with this name in the parent, without creating one. */
+export async function findFolder(name: string, parentId: string): Promise<string | null> {
+  const [existing] = await listFolders(name, parentId);
+  return existing ?? null;
+}
+
+export type FolderInfo = { state: "ok" | "trashed" | "missing"; name?: string; parents?: string[] };
+
+/** Whether a folder still exists and isn't in the trash, with its current name and parents. */
+export async function getFolderInfo(folderId: string): Promise<FolderInfo> {
+  const res = await drive(`/files/${encodeURIComponent(folderId)}`, {}, { fields: "name,parents,trashed" }, { allowNotFound: true });
+  if (res.status === 404) return { state: "missing" };
+  const file = await res.json();
+  return { state: file.trashed ? "trashed" : "ok", name: file.name, parents: file.parents };
+}
+
+/** Renames a file or folder and, when `newParent` differs from `oldParent`, moves it there. */
+export async function moveAndRename(fileId: string, name: string, newParent: string, oldParent?: string): Promise<void> {
+  const params: Record<string, string> = { fields: "id" };
+  if (oldParent && oldParent !== newParent) {
+    params.addParents = newParent;
+    params.removeParents = oldParent;
+  }
+  await drive(`/files/${encodeURIComponent(fileId)}`, { method: "PATCH", body: JSON.stringify({ name }) }, params);
+}
+
+export type DriveMediaFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: string;
+  appProperties?: Record<string, string>;
+  lastModifyingUser?: { displayName?: string };
+};
+
+const MAX_FOLDERS = 50;
+
+/** Every photo and video in the folder and its subfolders (not in the trash). */
+export async function listFolderMedia(folderId: string): Promise<DriveMediaFile[]> {
+  const media: DriveMediaFile[] = [];
+  const queue = [folderId];
+  let visited = 0;
+
+  while (queue.length && visited < MAX_FOLDERS) {
+    const parent = queue.shift()!;
+    visited++;
+    let pageToken: string | undefined;
+    do {
+      const params: Record<string, string> = {
+        q: `'${parent}' in parents and trashed = false and ` +
+          `(mimeType contains 'image/' or mimeType contains 'video/' or mimeType = '${FOLDER_MIME}')`,
+        corpora: "allDrives",
+        includeItemsFromAllDrives: "true",
+        pageSize: "1000",
+        fields: "nextPageToken,files(id,name,mimeType,size,appProperties,lastModifyingUser(displayName))",
+      };
+      if (pageToken) params.pageToken = pageToken;
+      const page = await (await drive("/files", {}, params)).json();
+      for (const file of (page.files ?? []) as DriveMediaFile[]) {
+        if (file.mimeType === FOLDER_MIME) queue.push(file.id);
+        else media.push(file);
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken);
+  }
+  return media;
 }
 
 /**
@@ -170,6 +238,7 @@ export async function startResumableUpload(opts: {
   size: number;
   origin: string;
   description?: string;
+  appProperties?: Record<string, string>;
 }): Promise<string> {
   const res = await drive(`${DRIVE_UPLOAD}/files`, {
     method: "POST",
@@ -178,7 +247,7 @@ export async function startResumableUpload(opts: {
       "X-Upload-Content-Length": String(opts.size),
       "Origin": opts.origin,
     },
-    body: JSON.stringify({ name: opts.name, parents: [opts.folderId], description: opts.description }),
+    body: JSON.stringify({ name: opts.name, parents: [opts.folderId], description: opts.description, appProperties: opts.appProperties }),
   }, { uploadType: "resumable", fields: "id,name,mimeType,size,parents" });
 
   const location = res.headers.get("Location");
@@ -223,14 +292,17 @@ export async function getThumbnail(fileId: string, size: number): Promise<{ byte
   return { bytes: await image.arrayBuffer(), type: image.headers.get("Content-Type") ?? "image/jpeg" };
 }
 
-/** Makes a file viewable by anyone with its link (needed for the public album), or removes that access. */
+/**
+ * Makes a file viewable by anyone with its link (needed for the public album), or removes that access.
+ * A file deleted in Drive is skipped rather than failing the whole album.
+ */
 export async function setPublicLink(fileId: string, isPublic: boolean): Promise<void> {
   const id = encodeURIComponent(fileId);
   if (isPublic) {
     await drive(`/files/${id}/permissions`, {
       method: "POST",
       body: JSON.stringify({ type: "anyone", role: "reader", allowFileDiscovery: false }),
-    }, { fields: "id" });
+    }, { fields: "id" }, { allowNotFound: true });
   } else {
     await drive(`/files/${id}/permissions/anyoneWithLink`, { method: "DELETE" }, {}, { allowNotFound: true });
   }
