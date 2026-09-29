@@ -107,3 +107,10 @@ h1,h2,h3,p{margin-top:0}
 .album-section .year-chips{margin:-8px 0 20px}
 .drive-badge{position:absolute;left:7px;bottom:7px;padding:3px 6px;border-radius:3px;background:#eaf1ff;color:#2f5aa8;font-size:9px;font-weight:700;letter-spacing:.6px}
 .panel-message.warn{background:#fbf1e3;color:#8a5a1c}
+/* Public upload status */
+.upload-status{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;max-width:900px;margin-top:30px;padding:16px 18px;border-radius:6px;border:1px solid var(--line);background:#fff}
+.upload-status>div:not(.upload-status-actions){flex:1 1 300px;min-width:0}.upload-status b{font:600 15px Manrope,sans-serif}.upload-status p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}.upload-status .link-text{margin-top:8px;font-size:11px}
+.upload-status-actions{display:flex;gap:8px;align-self:center}
+.status-dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:5px}
+.upload-status.open{border-color:#c8d6b3;background:#f7faf1}.upload-status.open .status-dot{background:#6ea24a;box-shadow:0 0 0 4px #6ea24a26}
+.upload-status.closed{background:#f6f6f3}.upload-status.closed .status-dot{background:#b5b9b3}
