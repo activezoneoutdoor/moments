@@ -6,6 +6,7 @@ import { eventCoverUrl } from "@/lib/covers";
 import { coverMediaJoin, driveThumbnail, formatEventDate, isVideo, publicEventColumns, uploadLinkUrl, type AzoEvent, type Media } from "@/lib/events";
 import { PublicShell, publicHomeUrl } from "../components/Shell";
 import { Lightbox } from "../components/Lightbox";
+import { BookingSection } from "../components/BookingSection";
 
 export default function EventPage() {
   const supabase = getSupabaseBrowserClient();
@@ -64,6 +65,8 @@ export default function EventPage() {
         {event.description && <p className="event-description">{event.description}</p>}
         {uploads && <UploadStatus accepting={uploads.accepting} url={uploads.url} />}
       </section>
+
+      {supabase && <BookingSection supabase={supabase} eventId={event.id} />}
 
       {event.album_status === "published" && (
         <section className="album-section">

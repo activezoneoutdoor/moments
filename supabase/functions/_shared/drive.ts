@@ -9,7 +9,7 @@ const EVENT_TIME_ZONE = "Asia/Nicosia";
 
 export type DriveFile = { id: string; name: string; mimeType: string; size?: string; parents?: string[] };
 
-let cachedToken: { value: string; expiresAt: number } | null = null;
+const cachedTokens = new Map<string, { value: string; expiresAt: number }>();
 
 export function sharedDriveId(): string {
   const id = Deno.env.get("AZO_SHARED_DRIVE_ID");
@@ -18,14 +18,20 @@ export function sharedDriveId(): string {
 }
 
 /** Exchanges the stored OAuth refresh token (one-time consent by a staff account) for an access token. */
-export async function accessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.value;
+/**
+ * Exchanges a stored OAuth refresh token (one-time consent by a Workspace account) for an access token.
+ * `secret` names the Supabase secret holding the refresh token: the Drive account by default, or another
+ * account such as the email sender.
+ */
+export async function accessToken(secret = "GOOGLE_OAUTH_REFRESH_TOKEN"): Promise<string> {
+  const cached = cachedTokens.get(secret);
+  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.value;
 
   const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
   const clientSecret = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
-  const refreshToken = Deno.env.get("GOOGLE_OAUTH_REFRESH_TOKEN");
+  const refreshToken = Deno.env.get(secret);
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error("GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_REFRESH_TOKEN must be set.");
+    throw new Error(`GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET and ${secret} must be set.`);
   }
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -41,12 +47,12 @@ export async function accessToken(): Promise<string> {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (body.error === "invalid_grant") {
-      throw new Error("Google Drive authorisation expired or was revoked. Redo the consent step in the README and update GOOGLE_OAUTH_REFRESH_TOKEN.");
+      throw new Error(`Google authorisation expired or was revoked. Redo the consent step in the README and update ${secret}.`);
     }
     throw new Error(`Google token request failed: ${res.status} ${JSON.stringify(body)}`);
   }
 
-  cachedToken = { value: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 };
+  cachedTokens.set(secret, { value: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 });
   return body.access_token;
 }
 

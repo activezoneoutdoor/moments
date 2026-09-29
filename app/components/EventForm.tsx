@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearEventCover, eventCoverUrl, resizeImage, uploadEventCover } from "@/lib/covers";
+import { sendQueuedEmails } from "@/lib/bookings";
 import { activities, coverMediaJoin, slugify, type AzoEvent, type EventStatus } from "@/lib/events";
 
 type Props = {
@@ -37,6 +38,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
     leader_email: event?.leader_email ?? "",
     partners: event?.partners.join(", ") ?? "",
     max_participants: event?.max_participants?.toString() ?? "",
+    bookings_open: event?.bookings_open ?? false,
+    booking_closes_at: toLocalInput(event?.booking_closes_at ?? null),
     description: event?.description ?? "",
     status: event?.status ?? ("draft" as EventStatus),
   });
@@ -84,6 +87,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
       leader_email: form.leader_email.trim() || null,
       partners: form.partners.split(",").map((p) => p.trim()).filter(Boolean),
       max_participants: form.max_participants ? Number(form.max_participants) : null,
+      bookings_open: form.bookings_open,
+      booking_closes_at: fromLocalInput(form.booking_closes_at),
       description: form.description.trim() || null,
       status: form.status,
     };
@@ -100,6 +105,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
     }
 
     const saved = data as AzoEvent;
+    // More seats may have promoted waitlisted bookings; send their emails.
+    if (event && saved.max_participants !== event.max_participants) sendQueuedEmails(supabase);
     let warning: string | undefined;
     try {
       if (photo) await uploadEventCover(supabase, saved, photo);
@@ -144,7 +151,9 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
         <label>Leader<input value={form.leader_name} onChange={set("leader_name")} /></label>
         <label>Leader email<input type="email" value={form.leader_email} onChange={set("leader_email")} /></label>
         <label><span>Together with <small>comma-separated</small></span><input value={form.partners} onChange={set("partners")} placeholder="Cyprus Hiking Club, …" /></label>
-        <label>Max participants<input type="number" min={1} value={form.max_participants} onChange={set("max_participants")} /></label>
+        <label><span>Max participants <small>empty = no limit</small></span><input type="number" min={1} value={form.max_participants} onChange={set("max_participants")} /></label>
+        <label className="checkbox-label"><input type="checkbox" checked={form.bookings_open} onChange={(e) => setForm({ ...form, bookings_open: e.target.checked })} /> Open for booking</label>
+        <label><span>Bookings close <small>empty = when the event starts</small></span><input type="datetime-local" value={form.booking_closes_at} max={form.starts_at} onChange={set("booking_closes_at")} /></label>
         <label className="span-2">Description<textarea rows={4} value={form.description} onChange={set("description")} /></label>
       </div>
       {!event && <p className="form-hint">The album folder is named automatically, e.g. <code>2026-09-27_SUP_Ayia-Napa</code>.</p>}
