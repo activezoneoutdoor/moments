@@ -22,7 +22,7 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
 
   const load = useCallback(async () => {
     const { data, error: loadError } = await supabase.from("bookings")
-      .select("*, emails:email_outbox(kind, status, last_error, created_at)").eq("event_id", event.id).order("created_at");
+      .select("*, emails:email_outbox(kind, recipient, status, last_error, created_at)").eq("event_id", event.id).order("created_at");
     if (loadError) setError(loadError.message);
     else setBookings((data ?? []) as Booking[]);
   }, [supabase, event.id]);
@@ -51,7 +51,7 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
   const cancel = (booking: Booking) => act(async () => {
     if (!window.confirm(`Cancel ${booking.contact_name}'s booking (${booking.seats} seat${booking.seats === 1 ? "" : "s"})?`)) return;
     const { error: updateError } = await supabase.from("bookings")
-      .update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", booking.id);
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancel_reason: "staff" }).eq("id", booking.id);
     if (updateError) throw updateError;
     sendQueuedEmails(supabase);
     await load();
@@ -102,7 +102,7 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
       {error && <p className="panel-message warn" role="alert">{error}</p>}
       {failedEmails.length > 0 && (
         <p className="panel-message warn" role="alert">
-          {failedEmails.length} booking email{failedEmails.length === 1 ? "" : "s"} could not be sent: {failedEmails[0].last_error}
+          {failedEmails.length} email{failedEmails.length === 1 ? "" : "s"} could not be sent{failedEmails.some((e) => e.recipient === "leader") ? " (including to the leader)" : ""}: {failedEmails[0].last_error}
         </p>
       )}
 
@@ -136,7 +136,7 @@ function BookingList({ title, bookings, busy, onCancel, numbered = false }: {
                   <EmailState emails={b.emails} />
                 </td>
                 <td className="booking-seats">{b.seats} seat{b.seats === 1 ? "" : "s"}</td>
-                <td className="booking-when">{bookedAt.format(new Date(b.created_at))}{b.promoted_at ? " · promoted" : ""}</td>
+                <td className="booking-when">{bookedAt.format(new Date(b.created_at))}{b.promoted_at ? " · promoted" : ""}{b.cancel_reason ? ` · ${cancelledBy[b.cancel_reason]}` : ""}</td>
                 <td className="booking-actions">{onCancel && <button disabled={busy} onClick={() => onCancel(b)}>Cancel</button>}</td>
               </tr>
             ))}
@@ -147,13 +147,16 @@ function BookingList({ title, bookings, busy, onCancel, numbered = false }: {
   );
 }
 
+const cancelledBy: Record<string, string> = { participant: "cancelled by participant", staff: "cancelled by staff", event_cancelled: "event cancelled" };
+
 const emailLabels: Record<string, string> = {
-  confirmed: "confirmation", waitlisted: "waitlist notice", promoted: "seat-freed notice", cancelled: "cancellation", reminder: "reminder",
+  confirmed: "confirmation", waitlisted: "waitlist notice", promoted: "seat-freed notice", cancelled: "cancellation",
+  reminder: "reminder", event_cancelled: "event cancellation",
 };
 
 /** The latest email about a booking and whether it went out. */
 function EmailState({ emails }: { emails?: BookingEmail[] }) {
-  const latest = [...(emails ?? [])].filter((e) => e.status !== "skipped").sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const latest = [...(emails ?? [])].filter((e) => e.recipient === "participant" && e.status !== "skipped").sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   if (!latest) return null;
   const label = emailLabels[latest.kind] ?? latest.kind;
   const state = latest.status === "sent" ? "sent" : latest.status === "failed" ? "failed" : "sending…";

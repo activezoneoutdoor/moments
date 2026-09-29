@@ -30,6 +30,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 10. Run `supabase/migrations/20261003000000_public_upload_link.sql`. Public event pages show whether photo uploads are open and, while they are, the upload link, so anyone at the event can find it. Anyone who sees the page can then upload, but everything goes to **To review** first. Close uploads or create a new link from the admin panel to stop it.
 11. Run `supabase/migrations/20261004000000_bookings.sql`. It adds seat booking (see **Bookings** below).
 12. Run `supabase/migrations/20261005000000_booking_emails.sql`. It adds booking emails (see **Booking emails** below).
+13. Run `supabase/migrations/20261006000000_event_cancellation_and_leader_emails.sql`. It adds event cancellation emails and leader notifications (see **Booking emails** below).
 
 ## Google Drive setup (album storage)
 
@@ -86,7 +87,7 @@ supabase functions deploy
 
 ### Booking emails
 
-Participants get an email when they book (confirmed or waitlisted), when a seat frees up and they're promoted, when a booking is cancelled, and a reminder the day before. Every email includes their private booking link. Replies go to the event's leader email, or to `EMAIL_REPLY_TO`.
+Participants get an email when they book (confirmed or waitlisted), when a seat frees up and they're promoted, when a booking is cancelled (by them, by staff, or because the event was cancelled), and a reminder the day before. Every email includes their private booking link. Replies go to the event's leader email, or to `EMAIL_REPLY_TO`.
 
 Emails are sent through Gmail as a Workspace user, so they're free (about 2,000 a day) and use your domain's existing email authentication. Supabase Edge Functions can't use SMTP ports, so this uses the Gmail API.
 
@@ -113,6 +114,12 @@ Emails are sent through Gmail as a Workspace user, so they're free (about 2,000 
      );
    $$);
    ```
+
+**Cancelling an event:** setting an event to **Cancelled** cancels all its active bookings, and each participant gets an "event cancelled" email. It includes the optional **Message to participants** from the event form. The form asks for confirmation first, showing how many bookings will be cancelled. Setting the event back to published doesn't restore the bookings.
+
+**Leader notifications:** set per event in the event form, sent to the event's leader email:
+- **Every booking change:** an email for each new booking, waitlist entry, promotion and cancellation, with contact details and current seats. Replies go to the participant.
+- **Daily summary:** from 19:00 Cyprus time, one email listing the day's changes and current totals. It's only sent on days with changes, and needs the cron job above.
 
 How it works:
 - Database triggers queue an email in `email_outbox` for every new booking and status change, including automatic waitlist promotions.

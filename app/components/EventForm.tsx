@@ -42,6 +42,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
     booking_closes_at: toLocalInput(event?.booking_closes_at ?? null),
     description: event?.description ?? "",
     status: event?.status ?? ("draft" as EventStatus),
+    cancellation_note: event?.cancellation_note ?? "",
+    leader_notify: event?.leader_notify ?? ("none" as AzoEvent["leader_notify"]),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -70,8 +72,18 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
 
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
 
+  const cancelling = form.status === "cancelled" && event?.status !== "cancelled";
+
   async function save(e: FormEvent) {
     e.preventDefault();
+
+    // Cancelling the event cancels its bookings and emails everyone; make sure that's intended.
+    if (event && cancelling) {
+      const { count } = await supabase.from("bookings").select("id", { count: "exact", head: true })
+        .eq("event_id", event.id).in("status", ["confirmed", "waitlisted"]);
+      if (count && !window.confirm(`Cancelling this event cancels its ${count} booking${count === 1 ? "" : "s"} and emails everyone. Continue?`)) return;
+    }
+
     setSaving(true);
     setError("");
 
@@ -91,6 +103,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
       booking_closes_at: fromLocalInput(form.booking_closes_at),
       description: form.description.trim() || null,
       status: form.status,
+      cancellation_note: form.cancellation_note.trim() || null,
+      leader_notify: form.leader_notify,
     };
 
     const query = event
@@ -105,8 +119,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
     }
 
     const saved = data as AzoEvent;
-    // More seats may have promoted waitlisted bookings; send their emails.
-    if (event && saved.max_participants !== event.max_participants) sendQueuedEmails(supabase);
+    // Cancelling the event, or adding seats that promote waitlisted bookings, queues emails; send them.
+    if (event && (saved.max_participants !== event.max_participants || saved.status !== event.status)) sendQueuedEmails(supabase);
     let warning: string | undefined;
     try {
       if (photo) await uploadEventCover(supabase, saved, photo);
@@ -154,6 +168,24 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
         <label><span>Max participants <small>empty = no limit</small></span><input type="number" min={1} value={form.max_participants} onChange={set("max_participants")} /></label>
         <label className="checkbox-label"><input type="checkbox" checked={form.bookings_open} onChange={(e) => setForm({ ...form, bookings_open: e.target.checked })} /> Open for booking</label>
         <label><span>Bookings close <small>empty = when the event starts</small></span><input type="datetime-local" value={form.booking_closes_at} max={form.starts_at} onChange={set("booking_closes_at")} /></label>
+        <label className="span-2">
+          <span>Leader notifications <small>emailed to the leader email above</small></span>
+          <select value={form.leader_notify} onChange={set("leader_notify")} disabled={!form.leader_email.trim()}>
+            <option value="none">Off</option>
+            <option value="each">Every booking change</option>
+            <option value="daily">Daily summary (19:00, only on days with changes)</option>
+          </select>
+          {!form.leader_email.trim() && <small>Add a leader email to turn this on.</small>}
+        </label>
+        {form.status === "cancelled" && (
+          <label className="span-2">
+            <span>Message to participants <small>optional, included in the cancellation email</small></span>
+            <textarea rows={3} maxLength={2000} value={form.cancellation_note} onChange={set("cancellation_note")} placeholder="e.g. Strong winds are forecast, so we're calling it off. Hope to see you next time!" disabled={!cancelling} />
+            {cancelling
+              ? <small>Saving cancels all bookings for this event and emails every participant.</small>
+              : <small>Already cancelled: participants were emailed.</small>}
+          </label>
+        )}
         <label className="span-2">Description<textarea rows={4} value={form.description} onChange={set("description")} /></label>
       </div>
       {!event && <p className="form-hint">The album folder is named automatically, e.g. <code>2026-09-27_SUP_Ayia-Napa</code>.</p>}

@@ -28,15 +28,15 @@ Deno.test("a dedicated sender account's token is used for Gmail", async () => {
 
   const realFetch = globalThis.fetch;
   const calls: string[] = [];
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = (input, init) => {
     const url = new URL(String(input));
     if (url.hostname === "oauth2.googleapis.com") {
       const refresh = new URLSearchParams(String(init?.body)).get("refresh_token");
       calls.push(`token for ${refresh}`);
-      return Response.json({ access_token: `access-for-${refresh}`, expires_in: 3600 });
+      return Promise.resolve(Response.json({ access_token: `access-for-${refresh}`, expires_in: 3600 }));
     }
     calls.push(`${url.pathname} with ${new Headers(init?.headers).get("Authorization")} raw=${typeof JSON.parse(String(init?.body)).raw}`);
-    return Response.json({ id: "m1" });
+    return Promise.resolve(Response.json({ id: "m1" }));
   };
   try {
     await sendEmail({ to: "a@example.com", subject: "Hi", text: "Hi", html: "<p>Hi</p>" });
