@@ -29,6 +29,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 9. Run `supabase/migrations/20261002000000_media_source.sql`. It records whether an album file came from the upload page or was added directly in Drive.
 10. Run `supabase/migrations/20261003000000_public_upload_link.sql`. Public event pages show whether photo uploads are open and, while they are, the upload link, so anyone at the event can find it. Anyone who sees the page can then upload, but everything goes to **To review** first. Close uploads or create a new link from the admin panel to stop it.
 11. Run `supabase/migrations/20261004000000_bookings.sql`. It adds seat booking (see **Bookings** below).
+12. Run `supabase/migrations/20261005000000_booking_emails.sql`. It adds booking emails (see **Booking emails** below).
 
 ## Google Drive setup (album storage)
 
@@ -57,6 +58,7 @@ The functions in `supabase/functions/` hold the Google credentials; the browser 
 | `media-thumbnail` | Staff dashboard | Returns an upload's preview image through the app's Drive access, so staff browsers don't need Google cookies (which browsers often block for other sites) |
 | `event-photo` | Staff dashboard | Saves, replaces or removes the event photo in the event's Drive folder and turns its link sharing on or off when the event is restored or archived |
 | `album-sync` | Staff dashboard | Brings an event's album in line with its Drive folder: files added there go to review, files deleted there leave the album, renames are picked up, and the folder is renamed/moved to match the event |
+| `send-emails` | Site, and a cron job | Sends queued booking emails through Gmail and queues day-before reminders |
 
 Deploy with the [Supabase CLI](https://supabase.com/docs/guides/cli):
 
@@ -81,6 +83,42 @@ supabase functions deploy
 - **Waitlist:** when a confirmed booking is cancelled, or staff raise **Max participants**, waiting bookings are confirmed automatically, oldest first. A booking needing more seats than are free is skipped so a smaller one behind it can go ahead. Nothing is promoted once the event has started.
 - **Staff:** the event panel's **Bookings** section shows seats booked, the confirmed list, the waitlist and cancellations. Staff can cancel bookings and export the participant list as CSV, one row per attendee.
 - **Safe counting:** seats are counted with the event row locked, so two people can't take the last seat at the same time.
+
+### Booking emails
+
+Participants get an email when they book (confirmed or waitlisted), when a seat frees up and they're promoted, when a booking is cancelled, and a reminder the day before. Every email includes their private booking link. Replies go to the event's leader email, or to `EMAIL_REPLY_TO`.
+
+Emails are sent through Gmail as a Workspace user, so they're free (about 2,000 a day) and use your domain's existing email authentication. Supabase Edge Functions can't use SMTP ports, so this uses the Gmail API.
+
+1. **Create the sender** as a Workspace user, `moments@activezoneoutdoor.cy`.
+2. **Enable the Gmail API** in the Google Cloud project that holds the OAuth client.
+3. **Authorise it once.** In [OAuth Playground](https://developers.google.com/oauthplayground), with the same client ID and secret, enter the scope `https://www.googleapis.com/auth/gmail.send`. Click **Authorize APIs**, sign in as `moments@activezoneoutdoor.cy`, and exchange the code for tokens. Copy the **refresh token**.
+4. **Set the secrets:**
+   ```sh
+   supabase secrets set \
+     GMAIL_REFRESH_TOKEN=<refresh token for moments@> \
+     EMAIL_FROM="AZO Moments <moments@activezoneoutdoor.cy>" \
+     EMAIL_REPLY_TO=<where replies go when an event has no leader email> \
+     SITE_URL=https://moments.activezoneoutdoor.cy
+   supabase functions deploy
+   ```
+   Without `GMAIL_REFRESH_TOKEN`, the Drive token is used, and it then needs the `gmail.send` scope too.
+5. **Schedule sending.** Reminders and retries need a regular run. In Supabase, enable the **pg_cron** and **pg_net** extensions (**Database → Extensions**), then run this in the SQL Editor:
+   ```sql
+   select cron.schedule('azo-send-emails', '*/15 * * * *', $$
+     select net.http_post(
+       url := 'https://<project-ref>.supabase.co/functions/v1/send-emails',
+       headers := '{"Content-Type": "application/json"}'::jsonb,
+       body := '{}'::jsonb
+     );
+   $$);
+   ```
+
+How it works:
+- Database triggers queue an email in `email_outbox` for every new booking and status change, including automatic waitlist promotions.
+- The site calls `send-emails` straight after booking or cancelling; the cron job catches the rest.
+- An email that's no longer true by the time it's sent, such as a confirmation for a booking cancelled meanwhile, is skipped.
+- Failures are retried up to 5 times. The event panel shows each booking's latest email and any failure with Google's reason.
 
 ### Working in Drive directly
 

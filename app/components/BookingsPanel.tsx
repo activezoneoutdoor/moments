@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Booking } from "@/lib/bookings";
+import { sendQueuedEmails, type Booking, type BookingEmail } from "@/lib/bookings";
 import type { AzoEvent } from "@/lib/events";
 
 type Props = { supabase: SupabaseClient; event: AzoEvent; onEventChanged: () => Promise<void> };
@@ -21,7 +21,8 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const { data, error: loadError } = await supabase.from("bookings").select("*").eq("event_id", event.id).order("created_at");
+    const { data, error: loadError } = await supabase.from("bookings")
+      .select("*, emails:email_outbox(kind, status, last_error, created_at)").eq("event_id", event.id).order("created_at");
     if (loadError) setError(loadError.message);
     else setBookings((data ?? []) as Booking[]);
   }, [supabase, event.id]);
@@ -52,7 +53,10 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
     const { error: updateError } = await supabase.from("bookings")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", booking.id);
     if (updateError) throw updateError;
+    sendQueuedEmails(supabase);
     await load();
+    // Give the emails a moment, then show whether they went out.
+    window.setTimeout(() => { void load(); }, 4000);
   });
 
   const confirmed = bookings.filter((b) => b.status === "confirmed");
@@ -60,6 +64,8 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
   const cancelled = bookings.filter((b) => b.status === "cancelled");
   const seats = confirmed.reduce((sum, b) => sum + b.seats, 0);
   const waitingSeats = waitlisted.reduce((sum, b) => sum + b.seats, 0);
+
+  const failedEmails = bookings.flatMap((b) => (b.emails ?? []).filter((e) => e.status === "failed"));
 
   const exportCsv = () => {
     const rows = [["Status", "Attendee", "Booked by", "Email", "Phone", "Note", "Booked at"]];
@@ -94,6 +100,11 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
       {!event.bookings_open && bookings.length === 0 && <p className="form-hint">Open bookings to show a booking form on the public event page.</p>}
       {event.bookings_open && event.status !== "published" && <p className="form-hint">The booking form appears once the event is published.</p>}
       {error && <p className="panel-message warn" role="alert">{error}</p>}
+      {failedEmails.length > 0 && (
+        <p className="panel-message warn" role="alert">
+          {failedEmails.length} booking email{failedEmails.length === 1 ? "" : "s"} could not be sent: {failedEmails[0].last_error}
+        </p>
+      )}
 
       <BookingList title="Confirmed" bookings={confirmed} busy={busy} onCancel={cancel} />
       {waitlisted.length > 0 && <BookingList title={`Waitlist · ${waitingSeats} seat${waitingSeats === 1 ? "" : "s"}`} bookings={waitlisted} busy={busy} onCancel={cancel} numbered />}
@@ -122,6 +133,7 @@ function BookingList({ title, bookings, busy, onCancel, numbered = false }: {
                   <b>{numbered ? `#${i + 1} ` : ""}{b.attendees.join(", ")}</b>
                   <span>{b.contact_name} · <a href={`mailto:${b.email}`}>{b.email}</a>{b.phone ? <> · <a href={`tel:${b.phone}`}>{b.phone}</a></> : null}</span>
                   {b.note && <span className="booking-note">“{b.note}”</span>}
+                  <EmailState emails={b.emails} />
                 </td>
                 <td className="booking-seats">{b.seats} seat{b.seats === 1 ? "" : "s"}</td>
                 <td className="booking-when">{bookedAt.format(new Date(b.created_at))}{b.promoted_at ? " · promoted" : ""}</td>
@@ -133,4 +145,17 @@ function BookingList({ title, bookings, busy, onCancel, numbered = false }: {
       )}
     </div>
   );
+}
+
+const emailLabels: Record<string, string> = {
+  confirmed: "confirmation", waitlisted: "waitlist notice", promoted: "seat-freed notice", cancelled: "cancellation", reminder: "reminder",
+};
+
+/** The latest email about a booking and whether it went out. */
+function EmailState({ emails }: { emails?: BookingEmail[] }) {
+  const latest = [...(emails ?? [])].filter((e) => e.status !== "skipped").sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  if (!latest) return null;
+  const label = emailLabels[latest.kind] ?? latest.kind;
+  const state = latest.status === "sent" ? "sent" : latest.status === "failed" ? "failed" : "sending…";
+  return <span className={`booking-email ${latest.status}`} title={latest.last_error ?? undefined}>✉ {label} {state}</span>;
 }

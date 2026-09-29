@@ -132,3 +132,4 @@ h1,h2,h3,p{margin-top:0}
 @media(max-width:600px){.booking-when{display:none}}
 .booking-list table{table-layout:fixed}.booking-seats{width:72px}.booking-when{width:150px}.booking-actions{width:76px}
 @media(max-width:600px){.booking-when{width:0}}
+.booking-who .booking-email{font-size:10.5px;margin-top:3px}.booking-email.sent{color:#4f7a3a}.booking-email.failed{color:#a1483f}.booking-email.queued,.booking-email.sending{color:#9a7a3a}

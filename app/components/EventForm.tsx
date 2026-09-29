@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearEventCover, eventCoverUrl, resizeImage, uploadEventCover } from "@/lib/covers";
+import { sendQueuedEmails } from "@/lib/bookings";
 import { activities, coverMediaJoin, slugify, type AzoEvent, type EventStatus } from "@/lib/events";
 
 type Props = {
@@ -104,6 +105,8 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
     }
 
     const saved = data as AzoEvent;
+    // More seats may have promoted waitlisted bookings; send their emails.
+    if (event && saved.max_participants !== event.max_participants) sendQueuedEmails(supabase);
     let warning: string | undefined;
     try {
       if (photo) await uploadEventCover(supabase, saved, photo);

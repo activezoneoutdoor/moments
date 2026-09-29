@@ -134,7 +134,7 @@ function BookingDone({ result }: { result: Result }) {
         {result.status === "confirmed"
           ? "Your seats are confirmed."
           : "If seats free up, your booking is confirmed automatically. Check your booking link for updates."}{" "}
-        <strong>Save this link:</strong> it&apos;s the only way to view or cancel your booking.
+        We&apos;ve emailed you this link too. <strong>Keep it:</strong> it&apos;s how you view or cancel your booking.
       </p>
       <code className="link-text">{url}</code>
       <div className="form-actions">

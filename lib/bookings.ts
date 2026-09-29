@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type BookingStatus = "confirmed" | "waitlisted" | "cancelled";
 export const MAX_SEATS_PER_BOOKING = 4;
 
+export type BookingEmail = { kind: string; status: "queued" | "sending" | "sent" | "skipped" | "failed"; last_error: string | null; created_at: string };
+
 export type Booking = {
   id: string;
   event_id: string;
@@ -16,6 +18,8 @@ export type Booking = {
   created_at: string;
   promoted_at: string | null;
   cancelled_at: string | null;
+  /** Present when loaded with the email_outbox relation (staff only). */
+  emails?: BookingEmail[];
 };
 
 export type PublicBookingStatus = {
@@ -65,6 +69,7 @@ export async function bookEvent(supabase: SupabaseClient, input: {
     p_note: input.note,
   });
   rememberBooking(input.eventId, result.token);
+  sendQueuedEmails(supabase);
   return result;
 }
 
@@ -75,6 +80,15 @@ export async function getBooking(supabase: SupabaseClient, token: string): Promi
 export async function cancelBooking(supabase: SupabaseClient, token: string): Promise<void> {
   const { error } = await supabase.rpc("cancel_booking", { p_token: token });
   if (error) throw new Error(error.message);
+  sendQueuedEmails(supabase);
+}
+
+/**
+ * Asks the send-emails function to send what the database just queued (confirmations, cancellations,
+ * waitlist promotions). Fire and forget: a scheduled run retries anything missed.
+ */
+export function sendQueuedEmails(supabase: SupabaseClient): void {
+  void supabase.functions.invoke("send-emails", { body: {} }).catch(() => undefined);
 }
 
 export function bookingPageUrl(token: string): string {
