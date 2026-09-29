@@ -36,10 +36,33 @@ export type Media = {
   mime_type: string;
   size: number | null;
   uploader_name: string | null;
+  /** "drive" when the file was added directly in the event's Drive folder. */
+  source: "upload" | "drive";
   status: MediaStatus;
   sort_order: number;
   created_at: string;
 };
+
+/** What an album sync with the event's Drive folder changed. */
+export type SyncSummary = {
+  added: number;
+  removed: number;
+  renamed: number;
+  folderAdopted: boolean;
+  folderRenamed: boolean;
+  warning: string | null;
+};
+
+export function describeSync(summary: SyncSummary): string {
+  const parts = [
+    summary.added && `${summary.added} added from Drive (to review)`,
+    summary.removed && `${summary.removed} removed (deleted in Drive)`,
+    summary.renamed && `${summary.renamed} renamed`,
+    summary.folderAdopted && "linked the existing Drive folder",
+    summary.folderRenamed && "renamed the Drive folder to match the event",
+  ].filter(Boolean);
+  return parts.length ? `Synced with Drive: ${parts.join(", ")}.` : "";
+}
 
 export const activities = ["Hiking", "SUP", "Kayaking", "Cycling", "Snorkeling", "Climbing", "Camping", "Trail running"];
 

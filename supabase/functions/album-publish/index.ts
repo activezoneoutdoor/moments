@@ -3,6 +3,7 @@
 import { admin, eventById, requireStaff } from "../_shared/db.ts";
 import { setPublicLink } from "../_shared/drive.ts";
 import { HttpError, requireString, serveJson } from "../_shared/http.ts";
+import { syncEvent } from "../_shared/sync.ts";
 
 const CONCURRENCY = 8;
 
@@ -17,6 +18,8 @@ serveJson(async (req, body) => {
   const event = await eventById(requireString(body, "eventId", 100));
   const publish = body.publish === true;
   if (publish && event.status === "archived") throw new HttpError(409, "Restore the event before publishing its album.");
+  // Publish exactly what is in the Drive folder now: files added there go to review, deleted ones leave the album.
+  const sync = publish ? await syncEvent(event) : null;
 
   const { data: media, error } = await admin().from("media").select("drive_file_id, status").eq("event_id", event.id);
   if (error) throw error;
@@ -27,5 +30,5 @@ serveJson(async (req, body) => {
   const { error: updateError } = await admin().from("events").update({ album_status: albumStatus }).eq("id", event.id);
   if (updateError) throw updateError;
 
-  return { albumStatus, shared: publish ? (media ?? []).filter((item) => item.status === "approved").length : 0 };
+  return { albumStatus, shared: publish ? (media ?? []).filter((item) => item.status === "approved").length : 0, sync };
 }, { exposeErrors: true });
