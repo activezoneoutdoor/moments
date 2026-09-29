@@ -5,6 +5,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { cancelBooking, getBooking, type PrivateBooking } from "@/lib/bookings";
 import { eventPageUrl, formatEventDate } from "@/lib/events";
 import { PublicShell } from "../components/Shell";
+import { PaymentBox } from "../components/PaymentBox";
 
 const statusText = {
   confirmed: "Confirmed",
@@ -74,6 +75,7 @@ export default function BookingPage() {
                 }[booking.cancel_reason ?? "staff"]}
               </p>
               {booking.cancellation_note && <blockquote className="booking-message">{booking.cancellation_note}</blockquote>}
+              <PaymentBox booking={booking} />
               <dl className="booking-details">
                 <div><dt>Seats</dt><dd>{booking.attendees.join(", ")}</dd></div>
                 <div><dt>Contact</dt><dd>{booking.contact_name} · {booking.email}{booking.phone ? ` · ${booking.phone}` : ""}</dd></div>

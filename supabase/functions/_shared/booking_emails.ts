@@ -2,7 +2,15 @@
 // Pure, so it can be tested without sending anything.
 import type { Email } from "./gmail.ts";
 
-export type EmailKind = "confirmed" | "waitlisted" | "promoted" | "cancelled" | "reminder" | "event_cancelled" | "leader_summary";
+export type EmailKind =
+  | "confirmed"
+  | "waitlisted"
+  | "promoted"
+  | "cancelled"
+  | "reminder"
+  | "event_cancelled"
+  | "leader_summary"
+  | "payment_received";
 export type CancelReason = "participant" | "staff" | "event_cancelled";
 
 /** One queued email as returned by the claim_emails database function. Booking fields are null for summaries. */
@@ -34,6 +42,12 @@ export type QueuedEmail = {
   leader_email: string | null;
   max_participants: number | null;
   cancellation_note: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  payment_status: "not_required" | "unpaid" | "paid" | "refunded" | null;
+  payment_reference: string | null;
+  payment_link: string | null;
+  payment_note: string | null;
 };
 
 /** Seats taken right now, for leader emails. */
@@ -67,6 +81,39 @@ function mapUrl(row: QueuedEmail): string {
 
 function seatText(seats: number, attendees: string[]): string {
   return `${seats} seat${seats === 1 ? "" : "s"}: ${attendees.join(", ")}`;
+}
+
+export function money(cents: number, currency = "EUR"): string {
+  return new Intl.NumberFormat("en-IE", { style: "currency", currency, minimumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
+}
+
+/** What the participant still has to pay, if anything, as text and HTML. */
+function paymentDue(row: QueuedEmail): { text: string[]; html: string } | null {
+  if (row.payment_status !== "unpaid" || !row.amount_cents || row.booking_status !== "confirmed") return null;
+  const amount = money(row.amount_cents, row.currency ?? "EUR");
+  const how = row.payment_link ? `Pay ${amount} here: ${row.payment_link}` : `Please pay ${amount}.`;
+  const text = [
+    "",
+    `Payment: ${how}`,
+    `Put this reference in the payment note: ${row.payment_reference}`,
+    ...(row.payment_note ? [row.payment_note] : []),
+  ];
+  const button = row.payment_link
+    ? `<a href="${row.payment_link}" style="display:inline-block;background:#d7ec7a;color:#1e4737;text-decoration:none;font-weight:bold;font-size:14px;padding:10px 16px;border-radius:4px;margin:8px 0">Pay ${escapeHtml(amount)}</a>`
+    : "";
+  const html = `<div style="margin:0 0 20px;padding:14px 16px;border:1px solid #d7ec7a;border-radius:6px;background:#fbfdf2">
+<p style="margin:0 0 4px;font-size:14px"><strong>Payment due: ${escapeHtml(amount)}</strong></p>
+${button}
+<p style="margin:6px 0 0;font-size:13px;color:#4c5a50">Put this reference in the payment note: <strong style="font-family:monospace">${escapeHtml(row.payment_reference ?? "")}</strong></p>
+${row.payment_note ? `<p style="margin:6px 0 0;font-size:13px;color:#4c5a50">${escapeHtml(row.payment_note)}</p>` : ""}
+</div>`;
+  return { text, html };
+}
+
+function paymentState(row: QueuedEmail): string | null {
+  if (!row.amount_cents) return null;
+  const amount = money(row.amount_cents, row.currency ?? "EUR");
+  return { unpaid: `${amount} unpaid`, paid: `${amount} paid`, refunded: `${amount} refunded`, not_required: null }[row.payment_status ?? "not_required"];
 }
 
 function capacityText(row: QueuedEmail, totals: Totals): string {
@@ -112,6 +159,8 @@ export function isStale(row: QueuedEmail): boolean {
       return row.booking_status !== "confirmed";
     case "waitlisted":
       return row.booking_status !== "waitlisted";
+    case "payment_received":
+      return row.payment_status !== "paid";
     default:
       return false;
   }
@@ -135,7 +184,13 @@ export function renderBookingEmail(row: QueuedEmail, siteUrl: string, fallbackRe
     ? "your booking is cancelled, as you asked. We hope to see you at another activity!"
     : "the organisers have cancelled your booking. If you didn't expect this, just reply to this email.";
 
+  const paid = row.amount_cents ? money(row.amount_cents, row.currency ?? "EUR") : "";
   const content: Record<Exclude<EmailKind, "leader_summary">, { subject: string; lead: string; action: string }> = {
+    payment_received: {
+      subject: `Payment received: ${row.event_title}`,
+      lead: `thank you! We've received your payment of ${paid}. You're all set.`,
+      action: "View your booking",
+    },
     confirmed: {
       subject: `You're booked: ${row.event_title}`,
       lead: "you're booked! Your seats are confirmed.",
@@ -168,6 +223,7 @@ export function renderBookingEmail(row: QueuedEmail, siteUrl: string, fallbackRe
     },
   };
   const { subject, lead, action } = content[row.kind as Exclude<EmailKind, "leader_summary">];
+  const payment = ["confirmed", "promoted", "reminder"].includes(row.kind) ? paymentDue(row) : null;
   const actionUrl = row.kind === "event_cancelled" ? link.site : row.kind === "cancelled" ? link.event : link.booking;
   const note = row.kind === "event_cancelled" ? row.cancellation_note : null;
   const showEventLink = !["cancelled", "event_cancelled"].includes(row.kind);
@@ -181,6 +237,7 @@ export function renderBookingEmail(row: QueuedEmail, siteUrl: string, fallbackRe
     `Where: ${row.event_location} (${mapUrl(row)})`,
     `Booking: ${seats}`,
     ...(row.leader_name ? [`Your leader: ${row.leader_name}`] : []),
+    ...(payment ? payment.text : []),
     "",
     `${action}: ${actionUrl}`,
     ...(showEventLink ? [`Event details: ${link.event}`] : []),
@@ -199,6 +256,7 @@ export function renderBookingEmail(row: QueuedEmail, siteUrl: string, fallbackRe
       ["Booking", escapeHtml(seats)],
       ...(row.leader_name ? [["Leader", escapeHtml(row.leader_name)] as [string, string]] : []),
     ],
+    sections: payment?.html,
     action: { label: action, url: actionUrl },
     secondary: showEventLink ? { label: "Event details", url: link.event } : null,
   });
@@ -238,6 +296,7 @@ export function renderLeaderEmail(row: QueuedEmail, siteUrl: string, totals: Tot
     `Booking: ${seats}`,
     `Contact: ${contact}`,
     ...(row.note ? [`Note: ${row.note}`] : []),
+    ...(paymentState(row) ? [`Payment: ${paymentState(row)} (reference ${row.payment_reference})`] : []),
     `Now: ${capacity}`,
     "",
     `Manage bookings: ${link.admin}`,
@@ -252,6 +311,7 @@ export function renderLeaderEmail(row: QueuedEmail, siteUrl: string, totals: Tot
       ["When", escapeHtml(when(row))],
       ["Booking", escapeHtml(seats)],
       ["Contact", escapeHtml(contact)],
+      ...(paymentState(row) ? [["Payment", escapeHtml(`${paymentState(row)} · ${row.payment_reference}`)] as [string, string]] : []),
       ["Now", escapeHtml(capacity)],
     ],
     action: { label: "Manage bookings", url: link.admin },

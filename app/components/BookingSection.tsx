@@ -3,16 +3,20 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  bookEvent, bookingPageUrl, getBookingStatus, MAX_SEATS_PER_BOOKING, rememberedBooking, seatsLabel,
-  type BookingStatus, type PublicBookingStatus,
+  bookEvent, bookingPageUrl, getBooking, getBookingStatus, MAX_SEATS_PER_BOOKING, rememberedBooking, seatsLabel,
+  type BookingStatus, type PrivateBooking, type PublicBookingStatus,
 } from "@/lib/bookings";
+import { formatMoney } from "@/lib/events";
+import { PaymentBox } from "./PaymentBox";
 
 type Result = { token: string; status: BookingStatus; waitlist_position: number | null };
 
 const closeFormat = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Nicosia" });
 
 /** Seats left and the booking form on the public event page. */
-export function BookingSection({ supabase, eventId }: { supabase: SupabaseClient; eventId: string }) {
+export function BookingSection({ supabase, eventId, priceCents, currency }: {
+  supabase: SupabaseClient; eventId: string; priceCents: number | null; currency: string;
+}) {
   const [status, setStatus] = useState<PublicBookingStatus | null>(null);
   const [existing, setExisting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -36,7 +40,7 @@ export function BookingSection({ supabase, eventId }: { supabase: SupabaseClient
       </div>
 
       {result ? (
-        <BookingDone result={result} />
+        <BookingDone supabase={supabase} result={result} />
       ) : !status.open ? (
         <p className="empty-state">Bookings for this event are closed.</p>
       ) : existing && !showForm ? (
@@ -53,6 +57,7 @@ export function BookingSection({ supabase, eventId }: { supabase: SupabaseClient
             {full
               ? "The event is full. Join the waitlist: if seats free up, the first bookings in line are confirmed automatically."
               : "Seats are confirmed straight away. No account needed."}{" "}
+            {priceCents ? `${formatMoney(priceCents, currency)} per seat, paid after booking. ` : ""}
             Bookings close {closeFormat.format(new Date(status.closes_at))}.
           </p>
           <BookingForm supabase={supabase} eventId={eventId} maxSeats={status.capacity ?? MAX_SEATS_PER_BOOKING} onBooked={(r) => { setResult(r); setExisting(r.token); void getBookingStatus(supabase, eventId).then(setStatus); }} />
@@ -115,9 +120,12 @@ function BookingForm({ supabase, eventId, maxSeats, onBooked }: {
   );
 }
 
-function BookingDone({ result }: { result: Result }) {
+function BookingDone({ supabase, result }: { supabase: SupabaseClient; result: Result }) {
   const url = bookingPageUrl(result.token);
   const [copied, setCopied] = useState(false);
+  // Load the booking once to show what's owed and how to pay.
+  const [booking, setBooking] = useState<PrivateBooking | null>(null);
+  useEffect(() => { void getBooking(supabase, result.token).then(setBooking).catch(() => undefined); }, [supabase, result.token]);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -136,6 +144,7 @@ function BookingDone({ result }: { result: Result }) {
           : "If seats free up, your booking is confirmed automatically. Check your booking link for updates."}{" "}
         We&apos;ve emailed you this link too. <strong>Keep it:</strong> it&apos;s how you view or cancel your booking.
       </p>
+      {booking && <PaymentBox booking={booking} />}
       <code className="link-text">{url}</code>
       <div className="form-actions">
         <a className="primary-button" href={url}>View booking</a>

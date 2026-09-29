@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { eventCoverUrl } from "@/lib/covers";
-import { coverMediaJoin, driveThumbnail, formatEventDate, isVideo, publicEventColumns, uploadLinkUrl, type AzoEvent, type Media } from "@/lib/events";
+import { coverMediaJoin, driveThumbnail, formatEventDate, formatMoney, isVideo, publicEventColumns, uploadLinkUrl, type AzoEvent, type Media } from "@/lib/events";
 import { PublicShell, publicHomeUrl } from "../components/Shell";
 import { Lightbox } from "../components/Lightbox";
 import { BookingSection } from "../components/BookingSection";
@@ -61,12 +61,13 @@ export default function EventPage() {
           {event.leader_name && <div><dt>Leader</dt><dd>{event.leader_name}</dd></div>}
           {event.partners.length > 0 && <div><dt>Together with</dt><dd>{event.partners.join(", ")}</dd></div>}
           {event.max_participants && <div><dt>Group size</dt><dd>Up to {event.max_participants} people</dd></div>}
+          {event.price_cents ? <div><dt>Price</dt><dd>{formatMoney(event.price_cents, event.currency)} per seat</dd></div> : null}
         </dl>
         {event.description && <p className="event-description">{event.description}</p>}
         {uploads && <UploadStatus accepting={uploads.accepting} url={uploads.url} />}
       </section>
 
-      {supabase && <BookingSection supabase={supabase} eventId={event.id} />}
+      {supabase && <BookingSection supabase={supabase} eventId={event.id} priceCents={event.price_cents} currency={event.currency} />}
 
       {event.album_status === "published" && (
         <section className="album-section">

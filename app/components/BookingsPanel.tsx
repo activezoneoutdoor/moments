@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendQueuedEmails, type Booking, type BookingEmail } from "@/lib/bookings";
-import type { AzoEvent } from "@/lib/events";
+import { sendQueuedEmails, type Booking, type BookingEmail, type PaymentStatus } from "@/lib/bookings";
+import { formatMoney, type AzoEvent } from "@/lib/events";
 
 type Props = { supabase: SupabaseClient; event: AzoEvent; onEventChanged: () => Promise<void> };
 
@@ -59,6 +59,14 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
     window.setTimeout(() => { void load(); }, 4000);
   });
 
+  // Payments arrive outside the app (e.g. Revolut); staff record them. Marking paid emails a receipt.
+  const setPayment = (booking: Booking, payment_status: PaymentStatus) => act(async () => {
+    const { error: updateError } = await supabase.from("bookings").update({ payment_status }).eq("id", booking.id);
+    if (updateError) throw updateError;
+    if (payment_status === "paid") sendQueuedEmails(supabase);
+    await load();
+  });
+
   const confirmed = bookings.filter((b) => b.status === "confirmed");
   const waitlisted = bookings.filter((b) => b.status === "waitlisted");
   const cancelled = bookings.filter((b) => b.status === "cancelled");
@@ -67,11 +75,20 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
 
   const failedEmails = bookings.flatMap((b) => (b.emails ?? []).filter((e) => e.status === "failed"));
 
+  const currency = event.currency ?? "EUR";
+  const owing = confirmed.filter((b) => b.amount_cents);
+  const collected = owing.filter((b) => b.payment_status === "paid").reduce((sum, b) => sum + (b.amount_cents ?? 0), 0);
+  const due = owing.reduce((sum, b) => sum + (b.amount_cents ?? 0), 0);
+  const refundsDue = cancelled.filter((b) => b.payment_status === "paid");
+
   const exportCsv = () => {
-    const rows = [["Status", "Attendee", "Booked by", "Email", "Phone", "Note", "Booked at"]];
+    const rows = [["Status", "Attendee", "Booked by", "Email", "Phone", "Note", "Booked at", "Amount", "Payment", "Reference"]];
     for (const b of [...confirmed, ...waitlisted]) {
       for (const attendee of b.attendees) {
-        rows.push([b.status, attendee, b.contact_name, b.email, b.phone ?? "", b.note ?? "", new Date(b.created_at).toISOString()]);
+        rows.push([
+          b.status, attendee, b.contact_name, b.email, b.phone ?? "", b.note ?? "", new Date(b.created_at).toISOString(),
+          b.amount_cents ? (b.amount_cents / 100).toFixed(2) : "", b.payment_status, b.payment_reference ?? "",
+        ]);
       }
     }
     const blob = new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" });
@@ -99,6 +116,15 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
       {event.max_participants && <div className="capacity-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (seats / event.max_participants) * 100)}%` }} /></div>}
       {!event.bookings_open && bookings.length === 0 && <p className="form-hint">Open bookings to show a booking form on the public event page.</p>}
       {event.bookings_open && event.status !== "published" && <p className="form-hint">The booking form appears once the event is published.</p>}
+      {due > 0 && (
+        <p className="payment-summary">
+          <b>{formatMoney(collected, currency)}</b> of {formatMoney(due, currency)} collected
+          {owing.length - owing.filter((b) => b.payment_status === "paid").length > 0 && ` · ${owing.filter((b) => b.payment_status !== "paid").length} unpaid`}
+        </p>
+      )}
+      {refundsDue.length > 0 && (
+        <p className="panel-message warn">{refundsDue.length} cancelled booking{refundsDue.length === 1 ? " has" : "s have"} paid and may need a refund. Mark them refunded once done.</p>
+      )}
       {error && <p className="panel-message warn" role="alert">{error}</p>}
       {failedEmails.length > 0 && (
         <p className="panel-message warn" role="alert">
@@ -106,20 +132,21 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
         </p>
       )}
 
-      <BookingList title="Confirmed" bookings={confirmed} busy={busy} onCancel={cancel} />
-      {waitlisted.length > 0 && <BookingList title={`Waitlist · ${waitingSeats} seat${waitingSeats === 1 ? "" : "s"}`} bookings={waitlisted} busy={busy} onCancel={cancel} numbered />}
+      <BookingList title="Confirmed" bookings={confirmed} busy={busy} onCancel={cancel} onPayment={setPayment} currency={currency} />
+      {waitlisted.length > 0 && <BookingList title={`Waitlist · ${waitingSeats} seat${waitingSeats === 1 ? "" : "s"}`} bookings={waitlisted} busy={busy} onCancel={cancel} numbered currency={currency} />}
       {cancelled.length > 0 && (
         <button className="link-button" onClick={() => setShowCancelled(!showCancelled)}>
           {showCancelled ? "Hide" : "Show"} {cancelled.length} cancelled
         </button>
       )}
-      {showCancelled && <BookingList title="Cancelled" bookings={cancelled} busy={busy} />}
+      {(showCancelled || refundsDue.length > 0) && <BookingList title="Cancelled" bookings={showCancelled ? cancelled : refundsDue} busy={busy} onPayment={setPayment} currency={currency} />}
     </div>
   );
 }
 
-function BookingList({ title, bookings, busy, onCancel, numbered = false }: {
-  title: string; bookings: Booking[]; busy: boolean; onCancel?: (booking: Booking) => void; numbered?: boolean;
+function BookingList({ title, bookings, busy, onCancel, onPayment, currency, numbered = false }: {
+  title: string; bookings: Booking[]; busy: boolean; currency: string; numbered?: boolean;
+  onCancel?: (booking: Booking) => void; onPayment?: (booking: Booking, status: PaymentStatus) => void;
 }) {
   return (
     <div className="booking-list">
@@ -136,6 +163,7 @@ function BookingList({ title, bookings, busy, onCancel, numbered = false }: {
                   <EmailState emails={b.emails} />
                 </td>
                 <td className="booking-seats">{b.seats} seat{b.seats === 1 ? "" : "s"}</td>
+                <td className="booking-payment"><Payment booking={b} busy={busy} currency={currency} onPayment={onPayment} /></td>
                 <td className="booking-when">{bookedAt.format(new Date(b.created_at))}{b.promoted_at ? " · promoted" : ""}{b.cancel_reason ? ` · ${cancelledBy[b.cancel_reason]}` : ""}</td>
                 <td className="booking-actions">{onCancel && <button disabled={busy} onClick={() => onCancel(b)}>Cancel</button>}</td>
               </tr>
@@ -161,4 +189,36 @@ function EmailState({ emails }: { emails?: BookingEmail[] }) {
   const label = emailLabels[latest.kind] ?? latest.kind;
   const state = latest.status === "sent" ? "sent" : latest.status === "failed" ? "failed" : "sending…";
   return <span className={`booking-email ${latest.status}`} title={latest.last_error ?? undefined}>✉ {label} {state}</span>;
+}
+
+/** A booking's payment state, with the action staff take next. */
+function Payment({ booking, busy, currency, onPayment }: {
+  booking: Booking; busy: boolean; currency: string; onPayment?: (booking: Booking, status: PaymentStatus) => void;
+}) {
+  if (!booking.amount_cents || booking.payment_status === "not_required") return <span className="pay-pill free">Free</span>;
+  const amount = formatMoney(booking.amount_cents, currency);
+  const cancelled = booking.status === "cancelled";
+  const action = (label: string, status: PaymentStatus) =>
+    onPayment && <button disabled={busy} onClick={() => onPayment(booking, status)}>{label}</button>;
+
+  if (booking.payment_status === "paid") {
+    return (
+      <>
+        <span className={`pay-pill ${cancelled ? "refund" : "paid"}`} title={booking.paid_at ? `Paid ${new Date(booking.paid_at).toLocaleString("en-GB")}` : undefined}>
+          {cancelled ? `Refund due ${amount}` : `Paid ${amount}`}
+        </span>
+        {cancelled ? action("Refunded", "refunded") : action("Undo", "unpaid")}
+      </>
+    );
+  }
+  if (booking.payment_status === "refunded") return <span className="pay-pill free">Refunded {amount}</span>;
+  if (booking.status === "waitlisted") return <span className="pay-pill free">{amount} when confirmed</span>;
+  if (cancelled) return <span className="pay-pill free">Unpaid</span>;
+  return (
+    <>
+      <span className="pay-pill unpaid" title={`Reference ${booking.payment_reference}`}>Unpaid {amount}</span>
+      <code className="pay-ref">{booking.payment_reference}</code>
+      {action("Mark paid", "paid")}
+    </>
+  );
 }
