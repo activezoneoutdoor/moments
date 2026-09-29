@@ -18,6 +18,8 @@ export type AzoEvent = {
   leader_email: string | null;
   partners: string[];
   max_participants: number | null;
+  bookings_open: boolean;
+  booking_closes_at: string | null;
   description: string | null;
   status: EventStatus;
   album_status: AlbumStatus;
@@ -70,7 +72,7 @@ export const activities = ["Hiking", "SUP", "Kayaking", "Cycling", "Snorkeling",
 export const coverMediaJoin = "cover:media!events_cover_media_fk(drive_file_id)";
 
 export const publicEventColumns =
-  "id, slug, title, activity, starts_at, ends_at, location_name, lat, lng, leader_name, partners, max_participants, description, status, album_status, cover_media_id, cover_drive_file_id";
+  "id, slug, title, activity, starts_at, ends_at, location_name, lat, lng, leader_name, partners, max_participants, bookings_open, booking_closes_at, description, status, album_status, cover_media_id, cover_drive_file_id";
 
 export function driveThumbnail(fileId: string, width = 800): string {
   return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width}`;

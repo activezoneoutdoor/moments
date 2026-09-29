@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearEventCover, eventCoverUrl, setEventPhotoShared } from "@/lib/covers";
 import { useStaffThumbnail } from "@/lib/thumbnails";
+import { BookingsPanel } from "./BookingsPanel";
 import {
   callFunction, coverMediaJoin, describeSync, driveFolderUrl, eventPageUrl, formatEventDate, isVideo, uploadLinkUrl,
   type AzoEvent, type Media, type MediaStatus, type SyncSummary,
@@ -224,6 +225,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
           {event.drive_folder_id && <a className="ghost-button" href={driveFolderUrl(event.drive_folder_id)} target="_blank" rel="noreferrer">Drive folder ↗</a>}
         </div>
       </div>
+
+      <BookingsPanel supabase={supabase} event={event} onEventChanged={refreshEvent} />
 
       <div className="section-heading album-heading">
         <div><p className="eyebrow">ALBUM · {event.album_status.toUpperCase()}</p><h2>Review media</h2></div>

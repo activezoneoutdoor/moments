@@ -28,6 +28,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 8. Run `supabase/migrations/20261001000000_event_photo_in_drive.sql`. Event photos are stored as `_event-photo.jpg` in the event's Drive folder and shared by link, so they use no Supabase storage or bandwidth. Staff pick the photo in the event form; it is resized in the browser to at most 1920px, and pages load it at the size they need. An approved album photo can be used instead; whichever was chosen last is shown. If your project has an `event-covers` bucket from an earlier version, delete it under **Storage** in the Supabase dashboard.
 9. Run `supabase/migrations/20261002000000_media_source.sql`. It records whether an album file came from the upload page or was added directly in Drive.
 10. Run `supabase/migrations/20261003000000_public_upload_link.sql`. Public event pages show whether photo uploads are open and, while they are, the upload link, so anyone at the event can find it. Anyone who sees the page can then upload, but everything goes to **To review** first. Close uploads or create a new link from the admin panel to stop it.
+11. Run `supabase/migrations/20261004000000_bookings.sql`. It adds seat booking (see **Bookings** below).
 
 ## Google Drive setup (album storage)
 
@@ -71,6 +72,15 @@ supabase functions deploy
 ```
 
 `supabase/config.toml` deploys all functions with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+
+### Bookings
+
+- **Opening bookings:** in the event form, tick **Open for booking**, set **Max participants** (empty means no limit) and, optionally, when bookings close (by default when the event starts). The **Open/Close bookings** button in the event panel does the same.
+- **Booking:** participants book on the public event page without an account: name, email, optional phone, and up to 4 seats with a name for each. While seats last, bookings are confirmed instantly; after that they join a waitlist.
+- **The private link:** after booking, participants get a private link (`/booking/?t=…`) to view or cancel. The page also remembers it on their device. No emails are sent yet, so they're asked to save the link.
+- **Waitlist:** when a confirmed booking is cancelled, or staff raise **Max participants**, waiting bookings are confirmed automatically, oldest first. A booking needing more seats than are free is skipped so a smaller one behind it can go ahead. Nothing is promoted once the event has started.
+- **Staff:** the event panel's **Bookings** section shows seats booked, the confirmed list, the waitlist and cancellations. Staff can cancel bookings and export the participant list as CSV, one row per attendee.
+- **Safe counting:** seats are counted with the event row locked, so two people can't take the last seat at the same time.
 
 ### Working in Drive directly
 

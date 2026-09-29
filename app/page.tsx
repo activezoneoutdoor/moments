@@ -59,6 +59,7 @@ function EventGrid({ supabase, title, eyebrow, events, empty }: GridProps) {
                 <CoverImage url={eventCoverUrl(e, e.cover?.drive_file_id, 800)} label={e.activity} />
                 {e.status === "cancelled" && <span className="pill status-cancelled">Cancelled</span>}
                 {e.album_status === "published" && <span className="pill status-published">Album</span>}
+                {e.bookings_open && e.status === "published" && new Date(e.booking_closes_at ?? e.starts_at) > new Date() && <span className="pill attention">Book now</span>}
               </div>
               <p className="eyebrow">{e.activity.toUpperCase()}</p>
               <h3>{e.title}</h3>

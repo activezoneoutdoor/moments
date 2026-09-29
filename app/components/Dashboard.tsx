@@ -14,15 +14,17 @@ type Mode = { kind: "view" } | { kind: "new" } | { kind: "edit"; event: AzoEvent
 export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   const [events, setEvents] = useState<AzoEvent[]>([]);
   const [pending, setPending] = useState<Record<string, number>>({});
+  const [booked, setBooked] = useState<Record<string, number>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>({ kind: "view" });
   const [tab, setTab] = useState<"upcoming" | "past" | "archived">("upcoming");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const [eventResult, mediaResult] = await Promise.all([
+    const [eventResult, mediaResult, bookingResult] = await Promise.all([
       supabase.from("events").select(`*, ${coverMediaJoin}`).order("starts_at", { ascending: false }),
       supabase.from("media").select("event_id").eq("status", "pending"),
+      supabase.from("bookings").select("event_id, seats").eq("status", "confirmed"),
     ]);
     if (eventResult.error) {
       setError(eventResult.error.message);
@@ -32,6 +34,9 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
     const counts: Record<string, number> = {};
     for (const row of mediaResult.data ?? []) counts[row.event_id] = (counts[row.event_id] ?? 0) + 1;
     setPending(counts);
+    const seats: Record<string, number> = {};
+    for (const row of bookingResult.data ?? []) seats[row.event_id] = (seats[row.event_id] ?? 0) + row.seats;
+    setBooked(seats);
   }, [supabase]);
 
   useEffect(() => { void load(); }, [load]);
@@ -81,6 +86,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
                   <span className="pill">{e.activity}</span>
                   <span className={`pill status-${e.status}`}>{e.status}</span>
                   {e.album_status === "published" && <span className="pill status-published">album live</span>}
+                  {(e.bookings_open || booked[e.id]) ? <span className="pill">{booked[e.id] ?? 0}{e.max_participants ? `/${e.max_participants}` : ""} booked</span> : null}
                 </span>
               </span>
             </button>
