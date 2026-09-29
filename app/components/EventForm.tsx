@@ -44,6 +44,9 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
     status: event?.status ?? ("draft" as EventStatus),
     cancellation_note: event?.cancellation_note ?? "",
     leader_notify: event?.leader_notify ?? ("none" as AzoEvent["leader_notify"]),
+    price: event?.price_cents ? (event.price_cents / 100).toString() : "",
+    payment_link: event?.payment_link ?? "",
+    payment_note: event?.payment_note ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -105,6 +108,9 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
       status: form.status,
       cancellation_note: form.cancellation_note.trim() || null,
       leader_notify: form.leader_notify,
+      price_cents: form.price ? Math.round(Number(form.price) * 100) || null : null,
+      payment_link: form.payment_link.trim() || null,
+      payment_note: form.payment_note.trim() || null,
     };
 
     const query = event
@@ -168,6 +174,18 @@ export function EventForm({ supabase, event, onSaved, onCancel }: Props) {
         <label><span>Max participants <small>empty = no limit</small></span><input type="number" min={1} value={form.max_participants} onChange={set("max_participants")} /></label>
         <label className="checkbox-label"><input type="checkbox" checked={form.bookings_open} onChange={(e) => setForm({ ...form, bookings_open: e.target.checked })} /> Open for booking</label>
         <label><span>Bookings close <small>empty = when the event starts</small></span><input type="datetime-local" value={form.booking_closes_at} max={form.starts_at} onChange={set("booking_closes_at")} /></label>
+        <label><span>Price per seat (€) <small>empty = free</small></span><input type="number" min={0} step="0.01" value={form.price} onChange={set("price")} placeholder="0" /></label>
+        <label>
+          <span>Payment link <small>e.g. the leader&apos;s Revolut.me</small></span>
+          <input type="url" pattern="https://.*" value={form.payment_link} onChange={set("payment_link")} placeholder="https://revolut.me/username" />
+        </label>
+        {form.price && Number(form.price) > 0 && (
+          <label className="span-2">
+            <span>Payment instructions <small>optional, shown with the payment details</small></span>
+            <input maxLength={1000} value={form.payment_note} onChange={set("payment_note")} placeholder="e.g. Please pay within 2 days of booking." />
+            {!form.payment_link.trim() && <small>Without a payment link, participants just see the amount and their reference.</small>}
+          </label>
+        )}
         <label className="span-2">
           <span>Leader notifications <small>emailed to the leader email above</small></span>
           <select value={form.leader_notify} onChange={set("leader_notify")} disabled={!form.leader_email.trim()}>

@@ -31,6 +31,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 11. Run `supabase/migrations/20261004000000_bookings.sql`. It adds seat booking (see **Bookings** below).
 12. Run `supabase/migrations/20261005000000_booking_emails.sql`. It adds booking emails (see **Booking emails** below).
 13. Run `supabase/migrations/20261006000000_event_cancellation_and_leader_emails.sql`. It adds event cancellation emails and leader notifications (see **Booking emails** below).
+14. Run `supabase/migrations/20261007000000_payments.sql`. It adds payments by link (see **Payments** below).
 
 ## Google Drive setup (album storage)
 
@@ -85,9 +86,21 @@ supabase functions deploy
 - **Staff:** the event panel's **Bookings** section shows seats booked, the confirmed list, the waitlist and cancellations. Staff can cancel bookings and export the participant list as CSV, one row per attendee.
 - **Safe counting:** seats are counted with the event row locked, so two people can't take the last seat at the same time.
 
+### Payments
+
+Events can have a **price per seat** and a **payment link**: any `https://` link, for example the leader's `https://revolut.me/username`, a PayPal.me link or a bank-transfer page. It's free for everyone, because the money goes straight to that account.
+
+- **At booking:** each confirmed booking records what it owes (price × seats, fixed at booking time) and gets a short **payment reference** such as `AZO-7F3K2C9A`.
+- **Asking for payment:** the confirmation screen, the booking page, and the confirmation, promotion and reminder emails show the amount, a **Pay** button, the reference to put in the payment note, and optional payment instructions. Waitlisted bookings see what they'll owe once confirmed.
+- **Recording payment:** payments happen outside the app, so staff record them. In the event panel's Bookings section, **Mark paid** matches the reference in the Revolut note, and the participant gets a "Payment received" email. The panel shows money collected against money due.
+- **Refunds:** a paid booking that is later cancelled shows **Refund due** until staff mark it **Refunded**.
+- **Export:** the CSV export includes the amount, payment status and reference.
+
+Revolut's terms for personal accounts aren't meant for regular business income; Revolut Business has payment links (with fees) if you need them.
+
 ### Booking emails
 
-Participants get an email when they book (confirmed or waitlisted), when a seat frees up and they're promoted, when a booking is cancelled (by them, by staff, or because the event was cancelled), and a reminder the day before. Every email includes their private booking link. Replies go to the event's leader email, or to `EMAIL_REPLY_TO`.
+Participants get an email when they book (confirmed or waitlisted), when a seat frees up and they're promoted, when a booking is cancelled (by them, by staff, or because the event was cancelled), when staff mark their payment received, and a reminder the day before. Every email includes their private booking link. Replies go to the event's leader email, or to `EMAIL_REPLY_TO`.
 
 Emails are sent through Gmail as a Workspace user, so they're free (about 2,000 a day) and use your domain's existing email authentication. Supabase Edge Functions can't use SMTP ports, so this uses the Gmail API.
 

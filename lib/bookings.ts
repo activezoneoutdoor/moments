@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type BookingStatus = "confirmed" | "waitlisted" | "cancelled";
 export type CancelReason = "participant" | "staff" | "event_cancelled";
+export type PaymentStatus = "not_required" | "unpaid" | "paid" | "refunded";
 export const MAX_SEATS_PER_BOOKING = 4;
 
 export type BookingEmail = { kind: string; recipient: "participant" | "leader"; status: "queued" | "sending" | "sent" | "skipped" | "failed"; last_error: string | null; created_at: string };
@@ -20,6 +21,10 @@ export type Booking = {
   promoted_at: string | null;
   cancelled_at: string | null;
   cancel_reason: CancelReason | null;
+  amount_cents: number | null;
+  payment_reference: string | null;
+  payment_status: PaymentStatus;
+  paid_at: string | null;
   /** Present when loaded with the email_outbox relation (staff only). */
   emails?: BookingEmail[];
 };
@@ -49,6 +54,12 @@ export type PrivateBooking = {
   can_cancel: boolean;
   cancel_reason: CancelReason | null;
   cancellation_note: string | null;
+  amount_cents: number | null;
+  currency: string;
+  payment_status: PaymentStatus;
+  payment_reference: string | null;
+  payment_link: string | null;
+  payment_note: string | null;
 };
 
 async function rpcRows<T>(supabase: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T[]> {

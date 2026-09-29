@@ -135,3 +135,17 @@ h1,h2,h3,p{margin-top:0}
 .booking-who .booking-email{font-size:10.5px;margin-top:3px}.booking-email.sent{color:#4f7a3a}.booking-email.failed{color:#a1483f}.booking-email.queued,.booking-email.sending{color:#9a7a3a}
 .booking-message{margin:0 0 12px;padding:10px 14px;border-left:3px solid var(--lime);background:#fff;font-size:13.5px;line-height:1.6;color:var(--ink)}
 .event-form select:disabled,.event-form textarea:disabled{opacity:.6}
+/* Payments */
+.payment-box{margin:0 0 14px;padding:12px 14px;border-radius:6px;background:#f6f6f3;font-size:13px;line-height:1.6;color:var(--ink)}
+.payment-box.due{background:#fbfdf2;border:1px solid var(--lime)}.payment-box.paid{background:#eef5e4;color:#2f5b37}
+.payment-box b{display:block;font:600 15px Manrope,sans-serif;margin-bottom:2px}.payment-box.paid b,.payment-box:not(.due) b{display:inline}
+.payment-box p{margin:4px 0 0;color:var(--muted);font-size:12.5px}.payment-box code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:var(--ink)}
+.payment-box .link-button{padding:0 0 0 4px;font-size:12px}.pay-button{margin-top:10px;background:var(--green)}
+.payment-summary{font-size:12.5px;color:var(--muted);margin:-6px 0 10px}.payment-summary b{color:var(--ink)}
+.booking-payment{width:190px}.booking-payment>*{margin:0 6px 4px 0}
+.pay-pill{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.pay-pill.unpaid{background:#fbf1e3;color:#8a5a1c}.pay-pill.paid{background:#dcebd0;color:#2f5b37}.pay-pill.refund{background:#f6e1dc;color:#a1483f}.pay-pill.free{background:#eef1e8;color:#6d776e}
+.pay-ref{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--muted)}
+.booking-payment button{border:1px solid #c8d6b3;background:#fff;color:var(--green);border-radius:3px;padding:2px 7px;font-size:10.5px;font-weight:600;cursor:pointer}
+@media(max-width:600px){.booking-payment{width:110px}}
+.booking-list .booking-when{white-space:normal}

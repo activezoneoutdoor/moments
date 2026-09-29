@@ -1,11 +1,12 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { isStale, type QueuedEmail, renderBookingEmail, renderLeaderEmail, renderLeaderSummary } from "./booking_emails.ts";
+import { isStale, money, type QueuedEmail, renderBookingEmail, renderLeaderEmail, renderLeaderSummary } from "./booking_emails.ts";
 
 const row: QueuedEmail = {
   id: "o1", kind: "confirmed", recipient: "participant", attempts: 1, period_start: null, event_id: "e1",
   booking_token: "tok/1", booking_status: "confirmed", cancel_reason: null,
   contact_name: "Maria Georgiou", email: "maria@example.com", phone: "+357 99 123456", note: "Vegetarian lunch",
   attendees: ["Maria", "Nikos"], seats: 2, waitlist_position: null, max_participants: 12, cancellation_note: null,
+  amount_cents: null, currency: "EUR", payment_status: "not_required", payment_reference: null, payment_link: null, payment_note: null,
   event_title: "Sunrise SUP <Konnos>", event_slug: "2026-10-03-sup-konnos", event_starts_at: "2026-10-03T05:00:00Z",
   event_ends_at: "2026-10-03T07:00:00Z", event_location: "Konnos Bay", event_lat: null, event_lng: null,
   leader_name: "Andreas", leader_email: "andreas@activezoneoutdoor.cy",
@@ -93,4 +94,38 @@ Deno.test("the daily summary lists the day's changes", () => {
   assertStringIncludes(email.text, "- Eleni (1 seat, eleni@example.com)");
   assertStringIncludes(email.text, "- Kostas (1 seat, kostas@example.com, by staff)");
   assertEquals(email.replyTo, null);
+});
+
+const unpaid = {
+  ...row, amount_cents: 4000, payment_status: "unpaid" as const, payment_reference: "AZO-7F3K2C9A",
+  payment_link: "https://revolut.me/andreas", payment_note: "Pay by Friday please.",
+};
+
+Deno.test("a confirmation asks for payment with the link and reference while unpaid", () => {
+  const email = renderBookingEmail(unpaid, "https://x.cy");
+  assertStringIncludes(email.text, "Payment: Pay €40 here: https://revolut.me/andreas");
+  assertStringIncludes(email.text, "Put this reference in the payment note: AZO-7F3K2C9A");
+  assertStringIncludes(email.text, "Pay by Friday please.");
+  assertStringIncludes(email.html, 'href="https://revolut.me/andreas"');
+  assertStringIncludes(email.html, "Payment due: €40");
+  // Not for waitlisted bookings (nothing is due yet) or once paid.
+  assertEquals(renderBookingEmail({ ...unpaid, kind: "waitlisted", booking_status: "waitlisted" }, "https://x.cy").text.includes("Payment:"), false);
+  assertEquals(renderBookingEmail({ ...unpaid, payment_status: "paid" }, "https://x.cy").text.includes("Payment:"), false);
+});
+
+Deno.test("marking a booking paid sends a receipt, unless it was unmarked meanwhile", () => {
+  const email = renderBookingEmail({ ...unpaid, kind: "payment_received", payment_status: "paid" }, "https://x.cy");
+  assertEquals(email.subject, "Payment received: Sunrise SUP <Konnos>");
+  assertStringIncludes(email.text, "We've received your payment of €40");
+  assertEquals(isStale({ ...unpaid, kind: "payment_received", payment_status: "paid" }), false);
+  assertEquals(isStale({ ...unpaid, kind: "payment_received", payment_status: "unpaid" }), true);
+});
+
+Deno.test("leaders see the payment state and reference", () => {
+  const email = renderLeaderEmail({ ...unpaid, recipient: "leader" }, "https://x.cy", { confirmedSeats: 2, waitlistedSeats: 0 });
+  assertStringIncludes(email.text, "Payment: €40 unpaid (reference AZO-7F3K2C9A)");
+});
+
+Deno.test("amounts keep cents only when needed", () => {
+  assertEquals([money(4000), money(1250), money(999, "GBP")], ["€40", "€12.50", "£9.99"]);
 });

@@ -24,6 +24,12 @@ export type AzoEvent = {
   cancellation_note: string | null;
   /** Leader emails about bookings: none, one per change, or a daily summary. */
   leader_notify: "none" | "each" | "daily";
+  /** Price per seat in cents; null or 0 means free. */
+  price_cents: number | null;
+  currency: string;
+  /** Where participants pay, e.g. a Revolut.me link. */
+  payment_link: string | null;
+  payment_note: string | null;
   description: string | null;
   status: EventStatus;
   album_status: AlbumStatus;
@@ -48,6 +54,10 @@ export type Media = {
   sort_order: number;
   created_at: string;
 };
+
+export function formatMoney(cents: number, currency = "EUR"): string {
+  return new Intl.NumberFormat("en-IE", { style: "currency", currency, minimumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
+}
 
 /** What an album sync with the event's Drive folder changed. */
 export type SyncSummary = {
@@ -76,7 +86,7 @@ export const activities = ["Hiking", "SUP", "Kayaking", "Cycling", "Snorkeling",
 export const coverMediaJoin = "cover:media!events_cover_media_fk(drive_file_id)";
 
 export const publicEventColumns =
-  "id, slug, title, activity, starts_at, ends_at, location_name, lat, lng, leader_name, partners, max_participants, bookings_open, booking_closes_at, description, status, album_status, cover_media_id, cover_drive_file_id";
+  "id, slug, title, activity, starts_at, ends_at, location_name, lat, lng, leader_name, partners, max_participants, bookings_open, booking_closes_at, price_cents, currency, description, status, album_status, cover_media_id, cover_drive_file_id";
 
 export function driveThumbnail(fileId: string, width = 800): string {
   return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width}`;
