@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { eventCoverUrl } from "@/lib/covers";
-import { coverMediaJoin, driveThumbnail, formatEventDate, isVideo, publicEventColumns, type AzoEvent, type Media } from "@/lib/events";
+import { coverMediaJoin, driveThumbnail, formatEventDate, isVideo, publicEventColumns, uploadLinkUrl, type AzoEvent, type Media } from "@/lib/events";
 import { PublicShell, publicHomeUrl } from "../components/Shell";
 import { Lightbox } from "../components/Lightbox";
 
@@ -12,6 +12,7 @@ export default function EventPage() {
   const [event, setEvent] = useState<AzoEvent | null | undefined>(undefined);
   const [media, setMedia] = useState<Media[]>([]);
   const [open, setOpen] = useState<number | null>(null);
+  const [uploads, setUploads] = useState<{ accepting: boolean; url: string | null } | null>(null);
 
   useEffect(() => {
     const slug = new URLSearchParams(window.location.search).get("slug");
@@ -23,6 +24,11 @@ export default function EventPage() {
       const found = data as unknown as AzoEvent | null;
       setEvent(found);
       if (found) document.title = `${found.title} | Active Zone Outdoor`;
+      if (found) {
+        const { data: link } = await supabase.rpc("public_upload_link", { p_event_id: found.id });
+        const row = (link as { accepting: boolean; token: string | null }[] | null)?.[0];
+        if (row) setUploads({ accepting: row.accepting, url: row.token ? uploadLinkUrl(row.token) : null });
+      }
       if (found?.album_status === "published") {
         const { data: items } = await supabase.from("media").select("*")
           .eq("event_id", found.id).eq("status", "approved").order("sort_order").order("created_at");
@@ -56,6 +62,7 @@ export default function EventPage() {
           {event.max_participants && <div><dt>Group size</dt><dd>Up to {event.max_participants} people</dd></div>}
         </dl>
         {event.description && <p className="event-description">{event.description}</p>}
+        {uploads && <UploadStatus accepting={uploads.accepting} url={uploads.url} />}
       </section>
 
       {event.album_status === "published" && (
@@ -73,5 +80,43 @@ export default function EventPage() {
       )}
       {open !== null && media.length > 0 && <Lightbox items={media} index={open} onChange={setOpen} />}
     </PublicShell>
+  );
+}
+
+function UploadStatus({ accepting, url }: { accepting: boolean; url: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!accepting || !url) {
+    return (
+      <div className="upload-status closed">
+        <span className="status-dot" aria-hidden="true" />
+        <div><b>Photo uploads are closed</b><p>This event isn&apos;t collecting photos and videos right now.</p></div>
+      </div>
+    );
+  }
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable: the link stays visible to copy by hand.
+    }
+  };
+
+  return (
+    <div className="upload-status open">
+      <span className="status-dot" aria-hidden="true" />
+      <div>
+        <b>Photo uploads are open</b>
+        <p>Were you there? Share your photos and videos. No account needed.</p>
+        <code className="link-text">{url}</code>
+      </div>
+      <div className="upload-status-actions">
+        <a className="primary-button" href={url}>Upload photos</a>
+        <button className="ghost-button" onClick={copy}>{copied ? "Copied" : "Copy link"}</button>
+      </div>
+    </div>
   );
 }
