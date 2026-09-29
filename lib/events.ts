@@ -20,6 +20,10 @@ export type AzoEvent = {
   max_participants: number | null;
   bookings_open: boolean;
   booking_closes_at: string | null;
+  /** Shown to participants in the email when the event is cancelled. */
+  cancellation_note: string | null;
+  /** Leader emails about bookings: none, one per change, or a daily summary. */
+  leader_notify: "none" | "each" | "daily";
   description: string | null;
   status: EventStatus;
   album_status: AlbumStatus;

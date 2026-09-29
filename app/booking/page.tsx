@@ -67,8 +67,13 @@ export default function BookingPage() {
               <p>
                 {booking.status === "confirmed" && `${booking.seats === 1 ? "1 seat" : `${booking.seats} seats`} booked.`}
                 {booking.status === "waitlisted" && "If seats free up, your booking is confirmed automatically. Check back here."}
-                {booking.status === "cancelled" && "This booking was cancelled."}
+                {booking.status === "cancelled" && {
+                  event_cancelled: "This event was cancelled, so your booking is cancelled too.",
+                  participant: "You cancelled this booking.",
+                  staff: "The organisers cancelled this booking.",
+                }[booking.cancel_reason ?? "staff"]}
               </p>
+              {booking.cancellation_note && <blockquote className="booking-message">{booking.cancellation_note}</blockquote>}
               <dl className="booking-details">
                 <div><dt>Seats</dt><dd>{booking.attendees.join(", ")}</dd></div>
                 <div><dt>Contact</dt><dd>{booking.contact_name} · {booking.email}{booking.phone ? ` · ${booking.phone}` : ""}</dd></div>
