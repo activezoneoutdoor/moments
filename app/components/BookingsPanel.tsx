@@ -5,7 +5,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendQueuedEmails, type Booking, type BookingEmail, type PaymentStatus } from "@/lib/bookings";
 import { formatMoney, type AzoEvent } from "@/lib/events";
 
-type Props = { supabase: SupabaseClient; event: AzoEvent; onEventChanged: () => Promise<void> };
+/** canManage false (event leaders): bookings can be cancelled and payments recorded, but not opened or closed. */
+type Props = { supabase: SupabaseClient; event: AzoEvent; canManage?: boolean; onEventChanged: () => Promise<void> };
 
 const bookedAt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Nicosia" });
 
@@ -14,7 +15,7 @@ function csvCell(value: string): string {
 }
 
 /** Staff view of an event's bookings: capacity, confirmed list, waitlist, cancellations and CSV export. */
-export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
+export function BookingsPanel({ supabase, event, canManage = true, onEventChanged }: Props) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [showCancelled, setShowCancelled] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -108,9 +109,9 @@ export function BookingsPanel({ supabase, event, onEventChanged }: Props) {
         </div>
         <div className="panel-actions">
           {confirmed.length + waitlisted.length > 0 && <button className="ghost-button" onClick={exportCsv}>Export list</button>}
-          <button className={event.bookings_open ? "ghost-button" : "primary-button"} disabled={busy} onClick={toggleOpen}>
+          {canManage && <button className={event.bookings_open ? "ghost-button" : "primary-button"} disabled={busy} onClick={toggleOpen}>
             {event.bookings_open ? "Close bookings" : "Open bookings"}
-          </button>
+          </button>}
         </div>
       </div>
       {event.max_participants && <div className="capacity-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (seats / event.max_participants) * 100)}%` }} /></div>}

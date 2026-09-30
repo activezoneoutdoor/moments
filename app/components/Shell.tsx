@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { useIsStaff } from "@/lib/auth";
+import { roleLabels, useTeamRole, type TeamRole } from "@/lib/auth";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 export const publicHomeUrl = `${basePath}/`;
@@ -12,7 +12,7 @@ export function Wordmark({ label = "AZO MOMENTS", href = publicHomeUrl }: { labe
   return <a className="wordmark" href={href} aria-label="AZO Moments home"><span className="brand-mark small">AZO</span><span>ACTIVE ZONE OUTDOOR <i>{label}</i></span></a>;
 }
 
-export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOut: () => void }) {
+export function StaffTopbar({ session, role, onSignOut }: { session: Session; role: TeamRole; onSignOut: () => void }) {
   const fullName = session.user.user_metadata.full_name
     ?? session.user.user_metadata.name
     ?? "AZO team member";
@@ -24,6 +24,7 @@ export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOu
       <div className="account">
         <a className="topbar-link" href={publicHomeUrl}>Public site ↗</a>
         {avatarUrl ? <img className="avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span className="avatar">{fullName[0]?.toUpperCase() ?? "A"}</span>}
+        <span className="pill role-pill">{roleLabels[role]}</span>
         <span className="account-details"><span className="account-name" title={fullName}>{fullName}</span><span className="account-email" title={session.user.email ?? undefined}>{session.user.email}</span></span>
         <button className="sign-out" onClick={onSignOut}>Sign out</button>
       </div>
@@ -32,7 +33,7 @@ export function StaffTopbar({ session, onSignOut }: { session: Session; onSignOu
 }
 
 export function PublicShell({ children }: { children: ReactNode }) {
-  const isStaff = useIsStaff();
+  const isTeam = useTeamRole() !== null;
 
   return (
     <main className="workspace-shell">
@@ -40,7 +41,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
         <Wordmark label="EVENTS & ALBUMS" />
         <nav className="account public-nav">
           <a className="topbar-link" href={publicHomeUrl}>Events</a>
-          <a className={isStaff ? "admin-link staff" : "admin-link"} href={adminUrl}>{isStaff ? "Admin" : "Staff sign in"}</a>
+          <a className={isTeam ? "admin-link staff" : "admin-link"} href={adminUrl}>{isTeam ? "Admin" : "Team sign in"}</a>
         </nav>
       </header>
       {children}

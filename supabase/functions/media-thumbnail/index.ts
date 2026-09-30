@@ -1,15 +1,19 @@
-// Staff only: returns the preview image of an uploaded photo or video for the review grid.
-import { admin, requireStaff } from "../_shared/db.ts";
+// Staff and the event's leader: returns the preview image of an uploaded photo or video for the review grid.
+import { admin, requireStaffOrEventLeader } from "../_shared/db.ts";
 import { getThumbnail } from "../_shared/drive.ts";
 import { HttpError, requireString, serveJson } from "../_shared/http.ts";
 
 serveJson(async (req, body) => {
-  await requireStaff(req);
   const size = Math.min(Math.max(Number(body.size) || 480, 120), 1600);
 
-  const { data: media, error } = await admin().from("media").select("drive_file_id").eq("id", requireString(body, "mediaId", 100)).maybeSingle();
+  const { data: media, error } = await admin().from("media").select("drive_file_id, event_id").eq("id", requireString(body, "mediaId", 100)).maybeSingle();
   if (error) throw error;
-  if (!media) throw new HttpError(404, "Media not found.");
+  // Same answer for a missing file and one the caller may not see, so ids can't be probed.
+  if (!media) {
+    await requireStaffOrEventLeader(req, "00000000-0000-0000-0000-000000000000");
+    throw new HttpError(404, "Media not found.");
+  }
+  await requireStaffOrEventLeader(req, media.event_id);
 
   const thumbnail = await getThumbnail(media.drive_file_id, size);
   if (!thumbnail) throw new HttpError(404, "No preview available yet.");

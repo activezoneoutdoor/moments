@@ -1,15 +1,17 @@
 "use client";
 
-import { allowedDomain, useStaffSession } from "@/lib/auth";
+import { useState, type FormEvent } from "react";
+import { useTeamSession, workspaceDomain } from "@/lib/auth";
 import { Dashboard } from "../components/Dashboard";
 import { publicHomeUrl, StaffTopbar } from "../components/Shell";
+import { TeamPanel } from "../components/TeamPanel";
 
 export default function AdminPage() {
-  const { supabase, session, checking, notice, signIn, signOut } = useStaffSession();
+  const { supabase, session, role, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut } = useTeamSession();
 
   if (checking) return <main className="loading-shell"><span className="brand-mark">AZO</span><p>Opening AZO Moments…</p></main>;
 
-  if (!session || !supabase) {
+  if (!session || !supabase || !role) {
     return (
       <main className="login-shell">
         <section className="login-card">
@@ -17,13 +19,14 @@ export default function AdminPage() {
           <p className="eyebrow">ACTIVE ZONE OUTDOOR</p>
           <h1>Your activities,<br />thoughtfully shared.</h1>
           <p className="intro">Plan events, collect participants&apos; photos and videos with one link, and publish each album on its public event page.</p>
-          <button className="google-button" onClick={signIn} disabled={!supabase}>
-            <GoogleMark /> Continue with Google <span aria-hidden="true">→</span>
+          <button className="google-button" onClick={signInWithGoogle} disabled={!supabase}>
+            <GoogleMark /> Staff: continue with Google <span aria-hidden="true">→</span>
           </button>
+          <p className="access-note"><span className="lock-icon">●</span> Staff sign in with their <strong>@{workspaceDomain}</strong> Google Workspace account</p>
+          <EmailCodeSignIn disabled={!supabase} sendCode={sendCode} verifyCode={verifyCode} />
           {!supabase && <p className="config-note">Add your Supabase project URL and publishable key to enable sign-in.</p>}
           {notice && <p className="auth-notice" role="status">{notice}</p>}
-          <p className="access-note"><span className="lock-icon">●</span> Sign in with your Active Zone Outdoor Google Workspace account</p>
-          <p className="domain-note">Access is limited to <strong>@{allowedDomain}</strong></p>
+          <p className="domain-note">Access is given by an admin. Having an account alone doesn&apos;t give access.</p>
           <a className="back-link" href={publicHomeUrl}>← Back to events</a>
         </section>
         <aside className="visual-panel" aria-label="AZO Moments introduction">
@@ -39,18 +42,65 @@ export default function AdminPage() {
 
   const fullName = session.user.user_metadata.full_name ?? session.user.user_metadata.name ?? "";
   const firstName = fullName.split(" ")[0];
+  const canManage = role === "admin" || role === "staff";
 
   return (
     <main className="workspace-shell">
-      <StaffTopbar session={session} onSignOut={signOut} />
+      <StaffTopbar session={session} role={role} onSignOut={signOut} />
       <section className="welcome">
         <p className="eyebrow">AZO MOMENTS · YOUR WORKSPACE</p>
         <h1>Good to have you here{firstName ? `, ${firstName}` : ""}.</h1>
-        <p>Create events, share one upload link per activity, and publish the best photos and videos.</p>
+        <p>{canManage
+          ? "Create events, share one upload link per activity, and publish the best photos and videos."
+          : "The events you lead: see who's coming, record payments and review the photos and videos participants share."}</p>
       </section>
-      <Dashboard supabase={supabase} />
+      <Dashboard supabase={supabase} canManage={canManage} />
+      {role === "admin" && <TeamPanel supabase={supabase} myEmail={session.user.email ?? ""} />}
       <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>
     </main>
+  );
+}
+
+/** Leaders (who may not have a Workspace account) sign in with a one-time code sent to their email. */
+function EmailCodeSignIn({ disabled, sendCode, verifyCode }: {
+  disabled: boolean;
+  sendCode: (email: string) => Promise<boolean>;
+  verifyCode: (email: string, code: string) => Promise<void>;
+}) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      if (!sent) setSent(await sendCode(email));
+      else await verifyCode(email, code);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="code-sign-in" onSubmit={submit}>
+      <p className="eyebrow">LEADERS: SIGN IN WITH AN EMAIL CODE</p>
+      {!sent ? (
+        <label>Your email
+          <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={disabled || busy} />
+        </label>
+      ) : (
+        <label>Code sent to {email}
+          <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" required value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} disabled={busy} autoFocus />
+        </label>
+      )}
+      <div className="code-actions">
+        <button className="ghost-button" type="submit" disabled={disabled || busy}>{busy ? "Please wait…" : sent ? "Sign in" : "Email me a code"}</button>
+        {sent && <button className="link-button" type="button" onClick={() => { setSent(false); setCode(""); }}>Use another email</button>}
+      </div>
+    </form>
   );
 }
 

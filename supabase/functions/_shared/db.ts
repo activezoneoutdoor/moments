@@ -21,6 +21,8 @@ let adminClient: SupabaseClient | null = null;
 export function admin(): SupabaseClient {
   adminClient ??= createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // Look fetch up on each request (supabase-js otherwise keeps the one it saw first), so tests can fake it.
+    global: { fetch: (...args) => fetch(...args) },
   });
   return adminClient;
 }
@@ -49,12 +51,39 @@ export async function eventById(id: string): Promise<EventRow> {
   return data as EventRow;
 }
 
-/** Checks the caller's Supabase session belongs to an Active Zone Outdoor staff account. */
-export async function requireStaff(req: Request): Promise<void> {
+export type Role = "admin" | "staff" | "leader";
+
+/**
+ * The caller's email and team role, from their Supabase session and the staff_roles table. Access comes only
+ * from that table (see the roles migration), so someone removed from the team is refused on their next request.
+ */
+export async function callerRole(req: Request): Promise<{ email: string; role: Role | null }> {
   const jwt = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   const { data, error } = await admin().auth.getUser(jwt);
-  const email = data.user?.email?.toLowerCase() ?? "";
-  if (error || !email.endsWith("@activezoneoutdoor.cy")) {
+  const email = data.user?.email?.trim().toLowerCase() ?? "";
+  if (error || !email) return { email: "", role: null };
+
+  const { data: row, error: roleError } = await admin().from("staff_roles").select("role").eq("email", email).maybeSingle();
+  if (roleError) throw roleError;
+  return { email, role: (row?.role as Role | undefined) ?? null };
+}
+
+/** Checks the caller is Active Zone Outdoor staff (admin or staff role). */
+export async function requireStaff(req: Request): Promise<void> {
+  const { role } = await callerRole(req);
+  if (role !== "admin" && role !== "staff") {
     throw new HttpError(403, "Only Active Zone Outdoor staff can do this.");
   }
+}
+
+/** Checks the caller is staff, or the leader of this event (the event's leader email is theirs). */
+export async function requireStaffOrEventLeader(req: Request, eventId: string): Promise<void> {
+  const { email, role } = await callerRole(req);
+  if (role === "admin" || role === "staff") return;
+  if (role === "leader") {
+    const { data, error } = await admin().from("events").select("leader_email").eq("id", eventId).maybeSingle();
+    if (error) throw error;
+    if (data?.leader_email?.trim().toLowerCase() === email) return;
+  }
+  throw new HttpError(403, "Only Active Zone Outdoor staff or the event's leader can do this.");
 }
