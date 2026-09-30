@@ -1,4 +1,4 @@
-/* Members area (/account/). Builds on the website's tokens and components in ../site.css; loaded only here. */
+/* My account (/account/). Builds on the website's tokens and components in ../site.css; loaded only here. */
 
 :root {
   --good-bg: #dcf3e8; --good-fg: #11643f;
@@ -17,7 +17,18 @@
   }
 }
 
-.account-main { min-height: 70vh; padding: calc(var(--header-h) + 40px) 0 72px; background: var(--bg-tint); }
+.account-main { min-height: 70vh; padding: calc(var(--header-h) + 40px) 0 72px; background: var(--bg-tint); color: var(--text); }
+/* The team sections' panels are made for a light background, so My account stays light in dark mode, like the
+   event pages (the website header and footer still follow the visitor's setting). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .account-main {
+    --text: #16241f; --text-muted: #4d5c56; --bg: #fbf8f2; --bg-tint: #f3ede1; --surface: #fff; --border: #e3ddd0;
+    --primary: #0f3d2e; --primary-contrast: #fff;
+    --shadow: 0 1px 2px rgba(15, 61, 46, .06), 0 8px 24px rgba(15, 61, 46, .08);
+    --good-bg: #dcf3e8; --good-fg: #11643f; --warn-bg: #fdeccf; --warn-fg: #8a4b00; --bad-bg: #fbe0da; --bad-fg: #a3321c;
+    --neutral-bg: var(--sea-100); --neutral-fg: var(--forest-800); --muted-bg: #ece8df; --muted-fg: #5d665f;
+  }
+}
 .account-main h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); }
 .account-main h2 { font-size: 1.3rem; margin-bottom: 1rem; }
 .account-loading { text-align: center; color: var(--text-muted); padding: 4rem 0; }
@@ -25,7 +36,7 @@
 .form-ok { color: var(--good-fg); margin: 0; }
 .muted { color: var(--text-muted); }
 .small { font-size: .9rem; }
-.empty { color: var(--text-muted); text-align: center; padding: 1.5rem 0; margin: 0; }
+.panel .empty { color: var(--text-muted); text-align: center; padding: 1.5rem 0; margin: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .stack { display: grid; gap: 1rem; }
 .stack .btn { justify-self: start; }
@@ -46,7 +57,8 @@
 
 .app-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1.75rem; }
 .app-head h1 { margin: 0; overflow-wrap: anywhere; }
-.app-head .eyebrow { margin-bottom: .4rem; }
+.account-who { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .5rem 0 0; color: var(--text-muted); overflow-wrap: anywhere; }
+.account-intro { margin: .35rem 0 0; }
 .app-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: clamp(1.25rem, 3vw, 1.75rem); box-shadow: var(--shadow); min-width: 0; }
 .panel-wide { grid-column: 1 / -1; }
@@ -76,3 +88,24 @@
 
 .field small { font-size: .82rem; }
 .field input[readonly] { background: var(--bg-tint); color: var(--text-muted); }
+
+/* Team sign-in with Google, under the email code */
+.team-sign-in { border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1.25rem; }
+.team-sign-in p { margin: 0 0 .75rem; }
+.team-sign-in .btn { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; }
+
+/* Sub-menu: Profile, Events, Albums, Members, Users (by role) */
+.account-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.75rem; }
+.account-tabs button {
+  font: 600 .95rem var(--font-body); padding: .55em 1.2em; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); transition: border-color .2s, background .2s;
+}
+.account-tabs button:hover { border-color: var(--primary); }
+.account-tabs button.is-active { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); }
+.account-tabs button:focus-visible { outline: 3px solid var(--sea-500); outline-offset: 2px; }
+.azo-admin .album-section { border-top: 0; padding-top: 0; }
+/* The team panels (generated admin.css) with the website's rounder buttons and cards */
+.azo-admin .primary-button, .azo-admin .ghost-button { border-radius: 999px; padding: 0 18px; }
+.azo-admin .event-row, .azo-admin .event-panel, .azo-admin .event-form, .azo-admin .empty-panel,
+.azo-admin .member-stats li, .azo-admin .upload-link-card, .azo-admin .admin-dialog { border-radius: var(--radius-sm); }
+.azo-admin .event-panel, .azo-admin .event-form, .azo-admin .empty-panel { box-shadow: var(--shadow); }

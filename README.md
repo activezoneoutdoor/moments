@@ -1,17 +1,16 @@
-# AZO Moments | Active Zone Outdoor
+# Active Zone Outdoor website
 
-AZO Moments lists Active Zone Outdoor events (date, location, leader, partner groups, group size) and collects each event's photos and videos from participants. Staff create an event and share its upload link, for example in the group chat. Participants upload without an account, and the files go straight into an automatically named folder in a Google Workspace Shared Drive, such as `2026/2026-09-27_SUP_Ayia-Napa`. Staff approve or hide uploads and publish the album on the event's public page.
+The Active Zone Outdoor website, with members' accounts and the team's tools in one place. It lists Active Zone Outdoor events (date, location, leader, partner groups, group size) and collects each event's photos and videos from participants. Staff create an event and share its upload link, for example in the group chat. Participants upload without an account, and the files go straight into an automatically named folder in a Google Workspace Shared Drive, such as `2026/2026-09-27_SUP_Ayia-Napa`. Staff approve or hide uploads and publish the album on the event's public page.
 
 Everything runs on free tiers: the static site on GitHub Pages, data and sign-in on Supabase, and small Supabase Edge Functions that talk to Google Drive. Media never passes through Supabase. It is stored in the Workspace's pooled Drive storage and uploaded from the browser directly to Google.
 
 | Page | Who | Purpose |
 | --- | --- | --- |
 | `/` | Public | The Active Zone Outdoor website: who we are, activities, inclusion, Erasmus+, how to get involved, and the contact form |
-| `/account/` | Members | Sign in with a code sent to your email; see your membership status, edit your details and follow yearly membership payments |
-| `/events/` | Public | Upcoming events and past albums. The header's **Team sign in** button (**Admin** once signed in) opens the admin section |
+| `/account/` | Everyone who signs in (**My account**) | One sign-in for members and the team: a code sent to your email, or Google for `@activezoneoutdoor.cy` accounts. The sub-menu depends on who you are: members see **Profile** (membership status, details, yearly payments); leaders **Profile**, **Events**, **Albums** (the events they lead: bookings, payments, album review); staff **Events**, **Albums**, **Members**; admins also **Users** (the team list) |
+| `/events/` | Public | Upcoming events and past albums |
 | `/event/?slug=<slug>` | Public | Event details and the published album |
 | `/upload/?t=<token>` | Anyone with the link | Upload photos and videos (up to 2 GB each, resumable) |
-| `/admin/` | Team members (see **Roles**). Sections: **Events**, **Albums** (uploads to review), **Members** (staff), **Users** (admins) | Staff: create/edit events, copy/close/rotate upload links, review media, publish albums. Leaders: bookings, payments and album review for the events they lead. Admins: also the team list |
 
 ## Supabase setup
 
@@ -21,7 +20,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
    - `http://localhost:3000/**`
    - `https://www2.activezoneoutdoor.cy/**`
 
-   This is Supabase's allowlist of where sign-in may return to. Staff sign in on `/admin/` and are sent back there.
+   This is Supabase's allowlist of where sign-in may return to. Everyone signs in on `/account/` and is sent back there.
 4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
 
 5. Run `supabase/migrations/20260927000000_restrict_workspace_signups.sql` in the Supabase SQL Editor. Then enable **Authentication → Hooks → Before User Created** and select `public.enforce_azo_workspace_signup`. This hook rejects account creation unless the account is a Google identity with the approved domain.
@@ -29,7 +28,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 7. Run `supabase/migrations/20260930000000_archive_events.sql`. It adds the `archived` status. Staff archive an event from its panel instead of deleting it: the event and album leave the public site, Drive link sharing (including the event photo) is removed, and the upload link closes. Media records, the Drive folder and the event photo are kept, and **Restore event** brings the event back as a draft.
 8. Run `supabase/migrations/20261001000000_event_photo_in_drive.sql`. Event photos are stored as `_event-photo.jpg` in the event's Drive folder and shared by link, so they use no Supabase storage or bandwidth. Staff pick the photo in the event form; it is resized in the browser to at most 1920px, and pages load it at the size they need. An approved album photo can be used instead; whichever was chosen last is shown. If your project has an `event-covers` bucket from an earlier version, delete it under **Storage** in the Supabase dashboard.
 9. Run `supabase/migrations/20261002000000_media_source.sql`. It records whether an album file came from the upload page or was added directly in Drive.
-10. Run `supabase/migrations/20261003000000_public_upload_link.sql`. Public event pages show whether photo uploads are open and, while they are, the upload link, so anyone at the event can find it. Anyone who sees the page can then upload, but everything goes to **To review** first. Close uploads or create a new link from the admin panel to stop it.
+10. Run `supabase/migrations/20261003000000_public_upload_link.sql`. Public event pages show whether photo uploads are open and, while they are, the upload link, so anyone at the event can find it. Anyone who sees the page can then upload, but everything goes to **To review** first. Close uploads or create a new link under **Events** in My account to stop it.
 11. Run `supabase/migrations/20261004000000_bookings.sql`. It adds seat booking (see **Bookings** below).
 12. Run `supabase/migrations/20261005000000_booking_emails.sql`. It adds booking emails (see **Booking emails** below).
 13. Run `supabase/migrations/20261006000000_event_cancellation_and_leader_emails.sql`. It adds event cancellation emails and leader notifications (see **Booking emails** below).
@@ -44,7 +43,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 
 ## Website and contact form
 
-The public pages (`app/(site)`: the website, `/account/`, and the event pages `/events/`, `/event/`, `/booking/`, `/upload/`) share the website's header, footer and design. The admin (`app/(moments)`) is a separate route group with its own root layout and stylesheet, so the two designs never mix. The event pages reuse the admin's layout rules through `app/components/public/public-events.css`, generated by `node scripts/build-public-css.mjs` (scoped to those pages and re-themed with the website's fonts and colours); run it again after changing styles the event pages share. Images for the website are in `public/assets/img` (the official logo, and the mountain mark used as the favicon).
+The public pages (`app/(site)`: the website, `/account/`, and the event pages `/events/`, `/event/`, `/booking/`, `/upload/`) share the website's header, footer and design. The event pages and the team sections of My account share the panel layout rules in `styles/panels.css`. `node scripts/build-scoped-css.mjs` turns them into `app/components/public/public-events.css` (scoped under `.azo-public`) and `app/components/account/admin.css` (under `.azo-admin`), re-themed with the website's fonts and colours; run it again after changing `styles/panels.css`. Images for the website are in `public/assets/img` (the official logo, and the mountain mark used as the favicon).
 
 The contact form posts to the `contact` edge function, which saves the message in `contact_messages` and emails it to the team through the same Gmail sender as the booking emails, with *Reply-To* set to the visitor. It checks the website's origin (from `CONTACT_ALLOWED_ORIGINS`, or `ALLOWED_ORIGINS` if that isn't set), a hidden honeypot field and a limit of 5 messages per IP per 10 minutes. If the function can't be reached, the form opens the visitor's email app instead.
 
@@ -58,7 +57,7 @@ Messages are in **Table Editor → contact_messages**; `email_sent` and `email_e
 
 ## Members
 
-Anyone can sign in at `/account/` with a code sent to their email (no password); their first sign-in creates an **online account**. Staff manage members under **Members & yearly fees** in the admin:
+Anyone can sign in at `/account/` with a code sent to their email (no password); their first sign-in creates an **online account**. Staff manage members under **Members** in My account:
 
 - **Register a member:** open them (or **+ Add member** for someone who hasn't signed in yet: when they later sign in with that email, the record is linked to them), set **Registered member**, the member number and the registration date.
 - **Yearly fees:** set the fee for each year under **Yearly fees**. Every year from a member's registration onward then shows as *Paid*, *Partly paid* or *Due*.
@@ -69,7 +68,7 @@ Members can change only their name and phone; status, member number, dates and p
 
 ## Roles
 
-Who can do what is decided by the `staff_roles` table, not by the email domain. Admins manage it under **Team & access** at the bottom of the admin page.
+Who can do what is decided by the `staff_roles` table, not by the email domain. Admins manage it under **Users** in My account. Anyone not on the list who signs in is a member and sees only their profile.
 
 | Role | Who | Can |
 | --- | --- | --- |
@@ -192,7 +191,7 @@ How it works:
 ### Working in Drive directly
 
 Drive decides which files an album has; the app decides what's approved and published. Staff may add, remove or rename files in an event's folder (subfolders included):
-- The app syncs when an event is opened in the admin panel, when **Sync with Drive** is pressed, and right before an album is published.
+- The app syncs when an event is opened under **Events** in My account, when **Sync with Drive** is pressed, and right before an album is published.
 - Photos and videos added in Drive appear under **To review**, marked "Added in Drive" with the name of who added them.
 - Files deleted or moved out of the folder are removed from the album, so they can never break publishing.
 - If the event's date, activity or location changes, the folder is renamed and moved to `YYYY/YYYY-MM-DD_Activity_Location`.
@@ -214,7 +213,7 @@ If an upload fails with "Couldn't reach the upload service", the browser got no 
 1. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the Supabase project. Leave `NEXT_PUBLIC_BASE_PATH` empty for local development.
 2. In Supabase **Authentication → URL Configuration**, add `http://localhost:3000/**` to the allowed redirect URLs.
 3. From the repository folder, run `npm install`, then `npm run dev`.
-4. Open [http://localhost:3000](http://localhost:3000) for the public events page, or [http://localhost:3000/admin/](http://localhost:3000/admin/) to sign in with a team account.
+4. Open [http://localhost:3000](http://localhost:3000) for the public events page, or [http://localhost:3000/account/](http://localhost:3000/account/) to sign in.
 
 Staff sign in with Google (the app passes `hd=activezoneoutdoor.cy` to guide account selection); leaders with an email code. After sign-in the app asks the database for the account's role (`my_role()`) and shows nothing to accounts without one. That check is only for the interface: the database's Row Level Security policies and the staff functions check `staff_roles` on every request. Supabase Auth's Before User Created hook allows Google sign-ups only for `@activezoneoutdoor.cy` and email-code sign-ups for anyone; an account alone gives no access. Participants never sign in; the upload link token is their only access.
 
@@ -223,7 +222,7 @@ Staff sign in with Google (the app passes `hd=activezoneoutdoor.cy` to guide acc
 The workflow in `.github/workflows/pages.yml` builds and deploys this repository to `https://www2.activezoneoutdoor.cy/` whenever a change is pushed to `main`.
 
 1. **Finish Supabase setup first.** In the Supabase project, enable Google sign-in, apply the workspace signup migration and hook above, and set the production Site URL to `https://www2.activezoneoutdoor.cy/`.
-2. **Allow the admin redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://www2.activezoneoutdoor.cy/**` (keep `http://localhost:3000/**` there too if you run locally).
+2. **Allow the sign-in redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://www2.activezoneoutdoor.cy/**` (keep `http://localhost:3000/**` there too if you run locally).
 3. **Add the public Supabase browser settings to GitHub.** Open the repository on GitHub, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. Add both:
    - Name: `NEXT_PUBLIC_SUPABASE_URL` · Value: the Supabase project's URL.
    - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY` · Value: the project's publishable key (or legacy anon key).

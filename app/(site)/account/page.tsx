@@ -1,103 +1,65 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { fetchTeamRole, type TeamRole } from "@/lib/auth";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
-import {
-  claimMembership, formatDate, membershipYears, methodLabels, money, payments as fetchPayments, statusLabels, thisYear,
-  updateProfile, yearStatus, yearStatusLabels, type Member, type MembershipYear, type Payment, type YearStatus,
-} from "@/lib/members";
+import { useState, type FormEvent } from "react";
+import { roleLabels, useAccountSession, workspaceDomain, type TeamRole } from "@/lib/auth";
+import { AccountSections } from "@/app/components/account/AccountSections";
 import { SiteBehaviour } from "@/app/components/site/SiteBehaviour";
 import { SiteFooter } from "@/app/components/site/SiteFooter";
 import { SiteHeader } from "@/app/components/site/SiteHeader";
 import "./account.css";
 
-type View =
-  | { kind: "loading" }
-  | { kind: "not-configured" }
-  | { kind: "signed-out" }
-  | { kind: "staff"; session: Session }
-  | { kind: "member"; session: Session; role: TeamRole | null; member: Member; years: MembershipYear[]; payments: Payment[] };
+const intro: Record<TeamRole, string> = {
+  admin: "Events, albums, members and the team.",
+  staff: "Events, albums and members.",
+  leader: "The events you lead and your profile.",
+};
 
-const yearTone: Record<YearStatus, string> = { paid: "good", partial: "warn", due: "bad", unset: "muted" };
-
-/** Members area: sign in with an email code, see membership status, edit details, follow yearly payments. */
+/**
+ * My account: one place for members and the team. Everyone signs in here; members see their profile, and team
+ * members (admin, staff, leader) also get the sections their role allows.
+ */
 export default function AccountPage() {
-  const [supabase] = useState(() => getSupabaseBrowserClient());
-  const [view, setView] = useState<View>({ kind: "loading" });
-  const [error, setError] = useState("");
-
-  const load = useCallback(async (client: SupabaseClient, session: Session | null) => {
-    if (!session) return setView({ kind: "signed-out" });
-    setView({ kind: "loading" });
-    try {
-      const role = await fetchTeamRole(client);
-      if (role === "admin" || role === "staff") return setView({ kind: "staff", session });
-      const member = await claimMembership(client);
-      if (!member) return setView({ kind: "signed-out" });
-      const [years, payments] = await Promise.all([membershipYears(client, member.id), fetchPayments(client, member.id)]);
-      setView({ kind: "member", session, role, member, years, payments });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setView({ kind: "signed-out" });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!supabase) return setView({ kind: "not-configured" });
-    let shown: string | null | undefined;
-    const show = (session: Session | null) => {
-      const id = session?.user.id ?? null;
-      if (id === shown) return;
-      shown = id;
-      void load(supabase, session);
-    };
-    void supabase.auth.getSession().then(({ data }) => show(data.session));
-    // Supabase calls must not run inside the auth callback itself, so loading is deferred.
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      window.setTimeout(() => show(session), 0);
-    });
-    return () => listener.subscription.unsubscribe();
-  }, [supabase, load]);
-
-  const signOut = async () => {
-    if (supabase) await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-    setView({ kind: "signed-out" });
-  };
+  const { supabase, session, role, member, setMember, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut } = useAccountSession();
+  const email = session?.user.email ?? "";
+  const name = member?.full_name || session?.user.user_metadata.full_name || session?.user.user_metadata.name || "";
+  const firstName = String(name).split(" ")[0];
 
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
-      <SiteHeader solid current="members" />
+      <SiteHeader solid current="account" />
       <main id="main" className="account-main">
         <div className="container">
-          {error && <p className="account-error" role="alert">{error}</p>}
-          {view.kind === "loading" && <p className="account-loading">Loading…</p>}
-          {view.kind === "not-configured" && (
+          {!supabase ? (
             <section className="auth-card">
-              <h1>Members area coming soon</h1>
-              <p>The members area isn&apos;t connected yet. Please check back soon, or <a href="/#contact">contact us</a>.</p>
+              <h1>My account is coming soon</h1>
+              <p>Sign-in isn&apos;t connected yet. Please check back soon, or <a href="/#contact">contact us</a>.</p>
             </section>
-          )}
-          {view.kind === "signed-out" && supabase && <SignIn supabase={supabase} onError={setError} />}
-          {view.kind === "staff" && (
-            <section className="auth-card">
-              <h1>You&apos;re signed in as staff</h1>
-              <p>Staff accounts manage members, their status and payments in the admin.</p>
-              <p className="actions">
-                <a className="btn btn-primary" href="/admin/">Open the admin</a>
-                <button className="btn btn-outline" type="button" onClick={signOut}>Sign out</button>
-              </p>
-            </section>
-          )}
-          {view.kind === "member" && supabase && (
-            <MemberView
-              supabase={supabase}
-              view={view}
-              onSaved={(member) => setView({ ...view, member })}
-              onSignOut={signOut}
-            />
+          ) : checking ? (
+            <p className="account-loading">Loading…</p>
+          ) : !session ? (
+            <SignIn notice={notice} sendCode={sendCode} verifyCode={verifyCode} signInWithGoogle={signInWithGoogle} />
+          ) : (
+            <>
+              <div className="app-head">
+                <div>
+                  <h1>{firstName ? `Hi, ${firstName}` : "Welcome"}</h1>
+                  <p className="account-who">
+                    <span>{email}</span>
+                    {role && <span className="badge badge-neutral">{roleLabels[role]}</span>}
+                  </p>
+                  {role && <p className="muted account-intro">{intro[role]}</p>}
+                </div>
+                <div className="actions">
+                  <button className="btn btn-outline btn-sm" type="button" onClick={signOut}>Sign out</button>
+                </div>
+              </div>
+              {!role && !member ? (
+                <p className="account-error" role="alert">We couldn&apos;t open your account. Please sign out and try again, or contact us.</p>
+              ) : (
+                <AccountSections key={session.user.id} supabase={supabase} role={role} member={member} email={email} onMemberSaved={setMember} />
+              )}
+            </>
           )}
         </div>
       </main>
@@ -107,30 +69,23 @@ export default function AccountPage() {
   );
 }
 
-function SignIn({ supabase, onError }: { supabase: SupabaseClient; onError: (message: string) => void }) {
+function SignIn({ notice, sendCode, verifyCode, signInWithGoogle }: {
+  notice: string;
+  sendCode: (email: string) => Promise<boolean>;
+  verifyCode: (email: string, code: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+}) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    setNotice("");
-    onError("");
     try {
-      const address = email.trim().toLowerCase();
-      if (!sent) {
-        const { error } = await supabase.auth.signInWithOtp({ email: address });
-        if (error) throw error;
-        setSent(true);
-      } else {
-        const { error } = await supabase.auth.verifyOtp({ email: address, token: code.trim(), type: "email" });
-        if (error) throw new Error(error.message === "Token has expired or is invalid" ? "That code is wrong or has expired. Request a new one." : error.message);
-      }
-    } catch (err) {
-      setNotice(err instanceof Error ? err.message : String(err));
+      if (!sent) setSent(await sendCode(email));
+      else await verifyCode(email, code);
     } finally {
       setBusy(false);
     }
@@ -139,8 +94,8 @@ function SignIn({ supabase, onError }: { supabase: SupabaseClient; onError: (mes
   return (
     <section className="auth-card">
       <img src="/assets/img/logo-official-160.png" alt="" width="88" height="88" />
-      <h1>Members area</h1>
-      <p>See your membership status, keep your details up to date and follow your yearly membership payments.</p>
+      <h1>My account</h1>
+      <p>Members and the Active Zone Outdoor team sign in here. Members see their membership and yearly payments; the team manages events, albums and members.</p>
       <form className="code-form" onSubmit={submit}>
         {!sent ? (
           <div className="field">
@@ -161,135 +116,16 @@ function SignIn({ supabase, onError }: { supabase: SupabaseClient; onError: (mes
       </form>
       {notice && <p className="account-error" role="alert">{notice}</p>}
       <p className="muted small">New here? Signing in creates your online account. No password needed.</p>
+      <div className="team-sign-in">
+        <p className="muted small">Team with an <strong>@{workspaceDomain}</strong> account</p>
+        <button className="btn btn-outline btn-block" type="button" onClick={() => void signInWithGoogle()}>
+          <GoogleMark /> Continue with Google
+        </button>
+      </div>
     </section>
   );
 }
 
-function MemberView({ supabase, view, onSaved, onSignOut }: {
-  supabase: SupabaseClient;
-  view: Extract<View, { kind: "member" }>;
-  onSaved: (member: Member) => void;
-  onSignOut: () => void;
-}) {
-  const { member, years, payments, role, session } = view;
-  const [name, setName] = useState(member.full_name);
-  const [phone, setPhone] = useState(member.phone ?? "");
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
-  const firstName = member.full_name.split(" ")[0];
-  const current = years.find((y) => y.year === thisYear());
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return setMessage({ text: "Please enter your name.", ok: false });
-    setSaving(true);
-    setMessage(null);
-    try {
-      onSaved(await updateProfile(supabase, member.id, { full_name: name.trim(), phone: phone.trim() || null }));
-      setMessage({ text: "Your details were saved.", ok: true });
-    } catch (err) {
-      setMessage({ text: err instanceof Error ? err.message : String(err), ok: false });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const explain: Record<Member["status"], string> = {
-    online: "You have an online account. To become a registered member of Active Zone Outdoor, contact us and we'll register you.",
-    registered: "You're a registered member of Active Zone Outdoor. Thank you for being part of the team!",
-    former: "You're no longer a registered member. Contact us any time to renew your membership.",
-  };
-
-  return (
-    <div>
-      <div className="app-head">
-        <div>
-          <p className="eyebrow">Members area</p>
-          <h1>{firstName ? `Hi, ${firstName}` : "Welcome"}</h1>
-        </div>
-        <div className="actions">
-          {role === "leader" && <a className="btn btn-outline btn-sm" href="/admin/">Events you lead</a>}
-          <button className="btn btn-outline btn-sm" type="button" onClick={onSignOut}>Sign out</button>
-        </div>
-      </div>
-
-      <div className="app-grid">
-        <section className="panel" aria-labelledby="status-title">
-          <h2 id="status-title">Membership</h2>
-          <p className={`status-hero status-${member.status}`}>
-            <span className={`badge badge-${member.status === "registered" ? "good" : member.status === "online" ? "neutral" : "muted"}`}>{statusLabels[member.status]}</span>
-          </p>
-          <dl className="facts">
-            {member.member_number && <><dt>Member no.</dt><dd>{member.member_number}</dd></>}
-            {member.registered_on && <><dt>Member since</dt><dd>{formatDate(member.registered_on)}</dd></>}
-            {member.status === "registered" && (
-              <><dt>{thisYear()} membership</dt><dd>{current ? <YearBadge status={yearStatus(current.fee, current.paid)} /> : "—"}</dd></>
-            )}
-          </dl>
-          <p className="muted">{explain[member.status]}</p>
-          {member.status !== "registered" && <a className="btn btn-outline btn-sm" href="/#contact">Contact us</a>}
-        </section>
-
-        <section className="panel" aria-labelledby="profile-title">
-          <h2 id="profile-title">Your details</h2>
-          <form className="stack" onSubmit={save} noValidate>
-            <div className="field">
-              <label htmlFor="p-name">Full name</label>
-              <input id="p-name" autoComplete="name" maxLength={120} required value={name} onChange={(e) => setName(e.target.value)} aria-invalid={message && !message.ok && !name.trim() ? true : undefined} />
-            </div>
-            <div className="field">
-              <label htmlFor="p-email">Email</label>
-              <input id="p-email" type="email" readOnly value={member.email ?? session.user.email ?? ""} aria-describedby="p-email-help" />
-              <small id="p-email-help" className="muted">You sign in with this email. Ask us if it needs to change.</small>
-            </div>
-            <div className="field">
-              <label htmlFor="p-phone">Mobile phone</label>
-              <input id="p-phone" type="tel" autoComplete="tel" maxLength={30} placeholder="+357 …" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? "Saving…" : "Save details"}</button>
-            {message && <p className={message.ok ? "form-ok" : "account-error"} role="status">{message.text}</p>}
-          </form>
-        </section>
-
-        <section className="panel panel-wide" aria-labelledby="payments-title">
-          <h2 id="payments-title">Yearly membership payments</h2>
-          {years.length === 0 && payments.length === 0 ? (
-            <p className="empty">{member.status === "registered"
-              ? "No membership years yet. Your yearly fees will appear here."
-              : "Yearly membership payments appear here once you're a registered member."}</p>
-          ) : (
-            <>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead><tr><th>Year</th><th>Fee</th><th>Paid</th><th>Status</th></tr></thead>
-                  <tbody>
-                    {years.map((y) => (
-                      <tr key={y.year}><td>{y.year}</td><td>{money(y.fee)}</td><td>{money(y.paid)}</td><td><YearBadge status={yearStatus(y.fee, y.paid)} /></td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {payments.length > 0 && (
-                <details className="history">
-                  <summary>Payment history ({payments.length})</summary>
-                  <ul className="payment-list">
-                    {payments.map((p) => (
-                      <li key={p.id}>
-                        <strong>{money(p.amount)}</strong> for {p.year} · {formatDate(p.paid_on)} · {methodLabels[p.method] ?? p.method}
-                        {p.reference && <span className="muted"> · {p.reference}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function YearBadge({ status }: { status: YearStatus }) {
-  return <span className={`badge badge-${yearTone[status]}`}>{yearStatusLabels[status]}</span>;
+function GoogleMark() {
+  return <svg aria-hidden="true" viewBox="0 0 48 48" width="18" height="18"><path fill="#FFC107" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.7c3.9-3.6 6-8.8 6-15Z"/><path fill="#FF3D00" d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.7-5.1c-1.8 1.2-4 2-6.8 2-5.2 0-9.6-3.5-11.2-8.2H5.9v5.2A20 20 0 0 0 24 44Z"/><path fill="#4CAF50" d="M12.8 27.9a12 12 0 0 1 0-7.8v-5.2H5.9a20 20 0 0 0 0 18.2l6.9-5.2Z"/><path fill="#1976D2" d="M24 11.9c3 0 5.7 1 7.8 3.1l5.9-5.9C34.1 5.7 29.5 4 24 4A20 20 0 0 0 5.9 14.9l6.9 5.2C14.4 15.4 18.8 11.9 24 11.9Z"/></svg>;
 }

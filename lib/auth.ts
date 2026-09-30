@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { claimMembership, type Member } from "@/lib/members";
 
 export const workspaceDomain = "activezoneoutdoor.cy";
 
@@ -19,50 +20,49 @@ export async function fetchTeamRole(supabase: SupabaseClient): Promise<TeamRole 
 }
 
 /**
- * Supabase session for Active Zone Outdoor team members (admins, staff and leaders). Staff sign in with Google
- * Workspace; leaders, who may not have a Workspace account, with a code sent to their email. Accounts without a
- * team role are signed out of this page.
+ * The session for My account (/account/). Everyone signs in here: members with a code sent to their email, the
+ * team (admins, staff, leaders) with the same code or, with an Active Zone Outdoor Workspace account, Google.
+ * `role` comes from the database (a removed team member gets null and sees only their member profile).
+ * `member` is the signed-in person's member record, created on first sign-in; admins and staff have none.
  */
-export function useTeamSession() {
+export function useAccountSession() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<TeamRole | null>(null);
+  const [member, setMember] = useState<Member | null>(null);
   const [checking, setChecking] = useState(true);
   const [notice, setNotice] = useState("");
-  const supabase = getSupabaseBrowserClient();
+  const [supabase] = useState(() => getSupabaseBrowserClient());
 
   useEffect(() => {
     if (!supabase) {
       setChecking(false);
       return;
     }
-    let current = "";
+    let current: string | undefined;
 
     const acceptSession = async (next: Session | null) => {
       const key = next?.user.id ?? "";
-      if (key === current && key !== "") return;
+      if (key === current) return;
       current = key;
       if (!next) {
         setSession(null);
         setRole(null);
+        setMember(null);
         setChecking(false);
         return;
       }
       setChecking(true);
       try {
         const nextRole = await fetchTeamRole(supabase);
-        if (nextRole) {
-          setSession(next);
-          setRole(nextRole);
-          setNotice("");
-        } else {
-          setSession(null);
-          setRole(null);
-          setNotice(`${next.user.email ?? "This account"} isn't on the Active Zone Outdoor team. Ask an admin to add you.`);
-          current = "";
-          await supabase.auth.signOut({ scope: "local" });
-        }
+        const nextMember = nextRole === "admin" || nextRole === "staff" ? null : await claimMembership(supabase);
+        setSession(next);
+        setRole(nextRole);
+        setMember(nextMember);
+        setNotice("");
       } catch {
-        setNotice("Could not check your access. Please try again.");
+        current = undefined;
+        setSession(null);
+        setNotice("Could not open your account. Please try again.");
       } finally {
         setChecking(false);
       }
@@ -120,12 +120,10 @@ export function useTeamSession() {
       ? await Promise.race([supabase.auth.signOut({ scope: "local" }), timeout]).catch((error: Error) => ({ error }))
       : { error: null };
     if (result.error) clearStoredSession();
-    setSession(null);
-    setRole(null);
     window.location.replace(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`);
   }
 
-  return { supabase, session, role, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut };
+  return { supabase, session, role, member, setMember, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut };
 }
 
 function clearStoredSession() {
@@ -138,16 +136,15 @@ function clearStoredSession() {
   }
 }
 
-/** The team role of the session stored in this browser, if any (no sign-in prompt). */
-export function useTeamRole(): TeamRole | null {
-  const [role, setRole] = useState<TeamRole | null>(null);
+/** Whether someone is signed in in this browser (no sign-in prompt). For the menu label. */
+export function useSignedIn(): boolean {
+  const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
-    void supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return;
-      setRole(await fetchTeamRole(supabase).catch(() => null));
-    });
+    void supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(Boolean(session)));
+    return () => listener.subscription.unsubscribe();
   }, []);
-  return role;
+  return signedIn;
 }

@@ -39,7 +39,7 @@ export function AlbumsPanel({ supabase, onReview }: { supabase: SupabaseClient; 
   return (
     <section className="album-section">
       <div className="section-heading">
-        <div><p className="eyebrow">ALBUMS</p><h2>Photos &amp; videos</h2></div>
+        <div><h2>Albums: photos &amp; videos</h2></div>
       </div>
       <div className="filter-tabs" role="tablist">
         <button role="tab" aria-selected={filter === "review"} className={filter === "review" ? "active" : ""} onClick={() => setFilter("review")}>To review <span>{toReview.length}</span></button>

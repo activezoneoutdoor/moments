@@ -33,7 +33,7 @@ const organisation = {
   address: { "@type": "PostalAddress", streetAddress: "Riga Fereou 10", addressLocality: "Klavdia, Larnaca", addressCountry: "CY" },
 };
 
-// The website has its own root layout and stylesheet, so its styles never mix with the events app's (app/(moments)).
+// The website's root layout and stylesheet. Page groups that need more styles (event pages, My account) import their own scoped CSS.
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">

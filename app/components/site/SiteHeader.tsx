@@ -1,10 +1,10 @@
-import { AdminLink } from "./AdminLink";
+import { AccountLink } from "./AccountLink";
 
 /**
  * The website's header. On the home page section links are "#about"; elsewhere they point back to "/#about".
  * Pages without the hero image use `solid` so the header is readable from the start.
  */
-export function SiteHeader({ home = false, solid = false, current }: { home?: boolean; solid?: boolean; current?: "members" | "events" }) {
+export function SiteHeader({ home = false, solid = false, current }: { home?: boolean; solid?: boolean; current?: "account" | "events" }) {
   const base = home ? "" : "/";
   return (
     <header className={solid ? "site-header is-solid" : "site-header"} id="top">
@@ -33,12 +33,7 @@ export function SiteHeader({ home = false, solid = false, current }: { home?: bo
                 Events
               </a>
             </li>
-            <li>
-              <a href="/account/" className={current === "members" ? "is-current" : undefined} aria-current={current === "members" ? "page" : undefined}>
-                Members
-              </a>
-            </li>
-            <AdminLink />
+            <li><AccountLink current={current === "account"} /></li>
             <li><a className="btn btn-sm btn-accent" href={`${base}#contact`}>Contact us</a></li>
           </ul>
         </nav>
