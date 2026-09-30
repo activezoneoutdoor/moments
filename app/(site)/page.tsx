@@ -1,4 +1,6 @@
 import { SiteBehaviour } from "@/app/components/site/SiteBehaviour";
+import { SiteFooter } from "@/app/components/site/SiteFooter";
+import { SiteHeader } from "@/app/components/site/SiteHeader";
 
 // The public website (ported from activezoneoutdoor/web). Interactions live in SiteBehaviour.
 export default function HomePage() {
@@ -6,33 +8,7 @@ export default function HomePage() {
     <>
       <a className="skip-link" href="#main">Skip to content</a>
 
-      <header className="site-header" id="top">
-          <div className="container nav-wrap">
-            <a className="brand" href="#top" aria-label="Active Zone Outdoor home">
-              <picture>
-                <source srcSet="assets/img/logo-official-160.webp" type="image/webp" />
-                <img className="brand-logo" src="assets/img/logo-official-160.png" alt="" width="48" height="48" />
-              </picture>
-              <span>Active Zone <strong>Outdoor</strong></span>
-            </a>
-
-            <button className="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
-              <span></span><span></span><span></span>
-            </button>
-
-            <nav id="site-nav" className="site-nav" aria-label="Main">
-              <ul>
-                <li><a href="#about">About</a></li>
-                <li><a href="#activities">Activities</a></li>
-                <li><a href="#inclusion">Inclusion</a></li>
-                <li><a href="#erasmus">Erasmus+</a></li>
-                <li><a href="/events/">Events</a></li>
-                <li><a href="#involved">Get involved</a></li>
-                <li><a className="btn btn-sm btn-accent" href="#contact">Contact us</a></li>
-              </ul>
-            </nav>
-          </div>
-        </header>
+      <SiteHeader home />
 
         <main id="main">
 
@@ -318,42 +294,7 @@ export default function HomePage() {
         </main>
 
 
-        <footer className="site-footer">
-          <div className="container footer-grid">
-            <div>
-              <a className="footer-logo" href="#top" aria-label="Active Zone Outdoor home">
-                <picture>
-                  <source srcSet="assets/img/logo-official-160.webp" type="image/webp" />
-                  <img src="assets/img/logo-official-160.png" alt="Active Zone Outdoor logo" width="96" height="96" loading="lazy" />
-                </picture>
-              </a>
-              <p className="slogan">“Learning not confined within four walls”</p>
-              <p>Non-profit youth organisation promoting mental health, inclusion and active citizenship through outdoor sport. Larnaca, Cyprus — since 2019.</p>
-            </div>
-            <nav aria-label="Footer">
-              <h3>Explore</h3>
-              <ul>
-                <li><a href="#about">About</a></li>
-                <li><a href="#activities">Activities</a></li>
-                <li><a href="#inclusion">Inclusion</a></li>
-                <li><a href="#erasmus">Erasmus+</a></li>
-                <li><a href="/events/">Events &amp; albums</a></li>
-              </ul>
-            </nav>
-            <div>
-              <h3>Contact</h3>
-              <ul>
-                <li><a href="tel:+35799541017">+357 99 541 017</a></li>
-                <li>Riga Fereou 10, Klavdia</li>
-                <li>Larnaca, Cyprus</li>
-              </ul>
-            </div>
-          </div>
-          <div className="container footer-bottom">
-            <p>&copy; <span id="year">2026</span> Active Zone Outdoor. All rights reserved.</p>
-            <a href="#top">Back to top ↑</a>
-          </div>
-        </footer>
+      <SiteFooter home />
 
       <SiteBehaviour />
     </>

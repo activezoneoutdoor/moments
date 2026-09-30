@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useTeamSession, workspaceDomain } from "@/lib/auth";
 import { Dashboard } from "@/app/components/Dashboard";
+import { MembersPanel } from "@/app/components/MembersPanel";
 import { publicHomeUrl, StaffTopbar } from "@/app/components/Shell";
 import { TeamPanel } from "@/app/components/TeamPanel";
 
@@ -55,6 +56,7 @@ export default function AdminPage() {
           : "The events you lead: see who's coming, record payments and review the photos and videos participants share."}</p>
       </section>
       <Dashboard supabase={supabase} canManage={canManage} />
+      {canManage && <MembersPanel supabase={supabase} />}
       {role === "admin" && <TeamPanel supabase={supabase} myEmail={session.user.email ?? ""} />}
       <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>
     </main>

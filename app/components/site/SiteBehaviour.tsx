@@ -31,8 +31,9 @@ export function SiteBehaviour() {
     const toggle = document.querySelector<HTMLButtonElement>(".nav-toggle");
     if (!header || !nav || !toggle) return;
 
-    // Solid header once the user scrolls past the hero top
-    const onScroll = () => header.classList.toggle("is-scrolled", window.scrollY > 24);
+    // Solid header once the user scrolls past the hero top (always solid on pages without a hero)
+    const alwaysSolid = header.classList.contains("is-solid");
+    const onScroll = () => header.classList.toggle("is-scrolled", alwaysSolid || window.scrollY > 24);
     onScroll();
     on(window, "scroll", onScroll, { passive: true });
 

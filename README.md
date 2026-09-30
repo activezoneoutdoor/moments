@@ -7,6 +7,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 | Page | Who | Purpose |
 | --- | --- | --- |
 | `/` | Public | The Active Zone Outdoor website: who we are, activities, inclusion, Erasmus+, how to get involved, and the contact form |
+| `/account/` | Members | Sign in with a code sent to your email; see your membership status, edit your details and follow yearly membership payments |
 | `/events/` | Public | Upcoming events and past albums. The header's **Team sign in** button (**Admin** once signed in) opens the admin section |
 | `/event/?slug=<slug>` | Public | Event details and the published album |
 | `/upload/?t=<token>` | Anyone with the link | Upload photos and videos (up to 2 GB each, resumable) |
@@ -34,9 +35,12 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 13. Run `supabase/migrations/20261006000000_event_cancellation_and_leader_emails.sql`. It adds event cancellation emails and leader notifications (see **Booking emails** below).
 14. Run `supabase/migrations/20261007000000_payments.sql`. It adds payments by link (see **Payments** below).
 15. Run `supabase/migrations/20261008000000_roles.sql`. Access now comes from a team list instead of the email domain (see **Roles** below). It makes `achernar@activezoneoutdoor.cy` the first admin and keeps everyone who already signed in with an `@activezoneoutdoor.cy` account as staff. The Before User Created hook from step 5 stays selected; the migration updates it to also allow email-code sign-ups.
-16. Enable email codes for leaders: **Authentication → Sign In / Providers → Email**, turn on **Email**, and under **Authentication → Emails** change both the **Magic Link** and **Confirm signup** templates (the first sign-in uses the second) to show the code, for example `<p>Your Active Zone Outdoor sign-in code: <strong>{{ .Token }}</strong></p>`. Supabase's built-in email sender allows only a few emails per hour; that's enough for a handful of leaders, and a Gmail-based sender will replace it when members get accounts.
+16. Enable email codes for leaders: **Authentication → Sign In / Providers → Email**, turn on **Email**, and under **Authentication → Emails** change both the **Magic Link** and **Confirm signup** templates (the first sign-in uses the second) to show the code, for example `<p>Your Active Zone Outdoor sign-in code: <strong>{{ .Token }}</strong></p>`. Supabase's built-in email sender allows only a few emails per hour, so step 19 sends the codes through Workspace Gmail instead.
 
 17. Run `supabase/migrations/20261009000000_contact_messages.sql` (safe if you already ran it from the old website repo). See **Contact form** below.
+
+18. Run `supabase/migrations/20261010000000_members.sql`. It adds member accounts (see **Members** below).
+19. Send sign-in codes through Gmail: `supabase functions deploy auth-email`, then in **Authentication → Hooks → Send Email** choose **HTTPS**, enter `https://<project-ref>.supabase.co/functions/v1/auth-email`, generate the secret and save it with `supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_…"`. Codes then come from the same Workspace sender as booking emails (optional `AUTH_EMAIL_FROM`, e.g. `Active Zone Outdoor <moments@activezoneoutdoor.cy>`; it must be that account or one of its Gmail aliases), in English and Greek. The email templates from step 16 are no longer used.
 
 ## Website and contact form
 
@@ -51,6 +55,17 @@ supabase functions deploy contact
 ```
 
 Messages are in **Table Editor → contact_messages**; `email_sent` and `email_error` show whether the email went out.
+
+## Members
+
+Anyone can sign in at `/account/` with a code sent to their email (no password); their first sign-in creates an **online account**. Staff manage members under **Members & yearly fees** in the admin:
+
+- **Register a member:** open them (or **+ Add member** for someone who hasn't signed in yet: when they later sign in with that email, the record is linked to them), set **Registered member**, the member number and the registration date.
+- **Yearly fees:** set the fee for each year under **Yearly fees**. Every year from a member's registration onward then shows as *Paid*, *Partly paid* or *Due*.
+- **Payments:** record cash or bank-transfer payments in the member's window (the amount is pre-filled with that year's fee). Members see their years and payment history on `/account/`.
+- **Status:** *Online account* (signed up on the website), *Registered member* (registered with the NGO) or *Former member*.
+
+Members can change only their name and phone; status, member number, dates and payments are staff-only, enforced by the database (`members` policies and the `guard_member_changes` trigger). Leaders don't see member data; staff and admins aren't members themselves.
 
 ## Roles
 
