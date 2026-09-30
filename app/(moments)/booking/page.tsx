@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { cancelBooking, getBooking, type PrivateBooking } from "@/lib/bookings";
 import { eventPageUrl, formatEventDate } from "@/lib/events";
-import { PublicShell } from "../components/Shell";
-import { PaymentBox } from "../components/PaymentBox";
+import { PublicShell } from "@/app/components/Shell";
+import { PaymentBox } from "@/app/components/PaymentBox";
 
 const statusText = {
   confirmed: "Confirmed",

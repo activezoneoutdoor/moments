@@ -5,7 +5,10 @@ import type { Session } from "@supabase/supabase-js";
 import { roleLabels, useTeamRole, type TeamRole } from "@/lib/auth";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-export const publicHomeUrl = `${basePath}/`;
+/** The website's home page (app/(site)). */
+export const siteHomeUrl = `${basePath}/`;
+/** Events & albums list. */
+export const publicHomeUrl = `${basePath}/events/`;
 export const adminUrl = `${basePath}/admin/`;
 
 export function Wordmark({ label = "AZO MOMENTS", href = publicHomeUrl }: { label?: string; href?: string }) {
@@ -22,7 +25,8 @@ export function StaffTopbar({ session, role, onSignOut }: { session: Session; ro
     <header className="topbar">
       <Wordmark label="ADMIN" href={adminUrl} />
       <div className="account">
-        <a className="topbar-link" href={publicHomeUrl}>Public site ↗</a>
+        <a className="topbar-link" href={siteHomeUrl}>Website ↗</a>
+        <a className="topbar-link" href={publicHomeUrl}>Events ↗</a>
         {avatarUrl ? <img className="avatar" src={avatarUrl} alt="" referrerPolicy="no-referrer" /> : <span className="avatar">{fullName[0]?.toUpperCase() ?? "A"}</span>}
         <span className="pill role-pill">{roleLabels[role]}</span>
         <span className="account-details"><span className="account-name" title={fullName}>{fullName}</span><span className="account-email" title={session.user.email ?? undefined}>{session.user.email}</span></span>
@@ -40,6 +44,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
       <header className="topbar">
         <Wordmark label="EVENTS & ALBUMS" />
         <nav className="account public-nav">
+          <a className="topbar-link" href={siteHomeUrl}>Website</a>
           <a className="topbar-link" href={publicHomeUrl}>Events</a>
           <a className={isTeam ? "admin-link staff" : "admin-link"} href={adminUrl}>{isTeam ? "Admin" : "Team sign in"}</a>
         </nav>

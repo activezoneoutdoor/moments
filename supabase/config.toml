@@ -22,3 +22,7 @@ verify_jwt = false
 
 [functions.send-emails]
 verify_jwt = false
+
+# The website's contact form is public; the function checks the origin, a honeypot and a per-IP rate limit.
+[functions.contact]
+verify_jwt = false

@@ -5,8 +5,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { eventCoverUrl } from "@/lib/covers";
 import { coverMediaJoin, eventPageUrl, formatEventDate, publicEventColumns, type AzoEvent } from "@/lib/events";
-import { PublicShell } from "./components/Shell";
-import { useYearFilter, YearChips } from "./components/YearChips";
+import { PublicShell } from "@/app/components/Shell";
+import { useYearFilter, YearChips } from "@/app/components/YearChips";
 
 export default function EventsPage() {
   const supabase = getSupabaseBrowserClient();

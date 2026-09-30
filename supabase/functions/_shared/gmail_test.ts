@@ -46,3 +46,12 @@ Deno.test("a dedicated sender account's token is used for Gmail", async () => {
   }
   assertEquals(calls, ["token for gmail-refresh", "/gmail/v1/users/me/messages/send with Bearer access-for-gmail-refresh raw=string"]);
 });
+
+Deno.test("visitor input in the subject or reply-to can't add headers", () => {
+  const message = buildMessage({
+    to: "team@activezoneoutdoor.cy", subject: "Hi\r\nBcc: victim@example.com", text: "x", html: "x",
+    replyTo: "a@b.co\r\nBcc: victim@example.com",
+  }, "Active Zone Outdoor website <moments@activezoneoutdoor.cy>");
+  const headers = message.split("\r\n\r\n")[0];
+  assertEquals(/^Bcc:/m.test(headers), false, headers);
+});

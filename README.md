@@ -6,7 +6,8 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 
 | Page | Who | Purpose |
 | --- | --- | --- |
-| `/` | Public | Upcoming events and past albums. The header's **Team sign in** button (**Admin** once signed in) opens the admin section |
+| `/` | Public | The Active Zone Outdoor website: who we are, activities, inclusion, Erasmus+, how to get involved, and the contact form |
+| `/events/` | Public | Upcoming events and past albums. The header's **Team sign in** button (**Admin** once signed in) opens the admin section |
 | `/event/?slug=<slug>` | Public | Event details and the published album |
 | `/upload/?t=<token>` | Anyone with the link | Upload photos and videos (up to 2 GB each, resumable) |
 | `/admin/` | Team members (see **Roles**) | Staff: create/edit events, copy/close/rotate upload links, review media, publish albums. Leaders: bookings, payments and album review for the events they lead. Admins: also the team list |
@@ -34,6 +35,22 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 14. Run `supabase/migrations/20261007000000_payments.sql`. It adds payments by link (see **Payments** below).
 15. Run `supabase/migrations/20261008000000_roles.sql`. Access now comes from a team list instead of the email domain (see **Roles** below). It makes `achernar@activezoneoutdoor.cy` the first admin and keeps everyone who already signed in with an `@activezoneoutdoor.cy` account as staff. The Before User Created hook from step 5 stays selected; the migration updates it to also allow email-code sign-ups.
 16. Enable email codes for leaders: **Authentication → Sign In / Providers → Email**, turn on **Email**, and under **Authentication → Emails** change both the **Magic Link** and **Confirm signup** templates (the first sign-in uses the second) to show the code, for example `<p>Your Active Zone Outdoor sign-in code: <strong>{{ .Token }}</strong></p>`. Supabase's built-in email sender allows only a few emails per hour; that's enough for a handful of leaders, and a Gmail-based sender will replace it when members get accounts.
+
+17. Run `supabase/migrations/20261009000000_contact_messages.sql` (safe if you already ran it from the old website repo). See **Contact form** below.
+
+## Website and contact form
+
+The website (`app/(site)`) and the events app (`app/(moments)`) are separate Next.js route groups, each with its own root layout and stylesheet, so their designs never mix. Images for the website are in `public/assets/img` (the official logo, and the mountain mark used as the favicon).
+
+The contact form posts to the `contact` edge function, which saves the message in `contact_messages` and emails it to the team through the same Gmail sender as the booking emails, with *Reply-To* set to the visitor. It checks the website's origin (from `CONTACT_ALLOWED_ORIGINS`, or `ALLOWED_ORIGINS` if that isn't set), a hidden honeypot field and a limit of 5 messages per IP per 10 minutes. If the function can't be reached, the form opens the visitor's email app instead.
+
+```sh
+supabase secrets set CONTACT_TO_EMAIL=info@activezoneoutdoor.cy   # inbox(es) for messages, comma-separated
+# optional: CONTACT_EMAIL_FROM="Active Zone Outdoor website <moments@activezoneoutdoor.cy>" (default: EMAIL_FROM's address)
+supabase functions deploy contact
+```
+
+Messages are in **Table Editor → contact_messages**; `email_sent` and `email_error` show whether the email went out.
 
 ## Roles
 

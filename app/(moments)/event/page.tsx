@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { eventCoverUrl } from "@/lib/covers";
 import { coverMediaJoin, driveThumbnail, formatEventDate, formatMoney, isVideo, publicEventColumns, uploadLinkUrl, type AzoEvent, type Media } from "@/lib/events";
-import { PublicShell, publicHomeUrl } from "../components/Shell";
-import { Lightbox } from "../components/Lightbox";
-import { BookingSection } from "../components/BookingSection";
+import { PublicShell, publicHomeUrl } from "@/app/components/Shell";
+import { Lightbox } from "@/app/components/Lightbox";
+import { BookingSection } from "@/app/components/BookingSection";
 
 export default function EventPage() {
   const supabase = getSupabaseBrowserClient();
