@@ -78,7 +78,7 @@ export function Dashboard({ supabase, canManage = true, openEventId }: { supabas
   return (
     <section className="album-section dashboard">
       <div className="section-heading">
-        <div><p className="eyebrow">EVENTS & ALBUMS</p><h2>{canManage ? "Your activities" : "Events you lead"}</h2></div>
+        <div><h2>{canManage ? "Events" : "Events you lead"}</h2></div>
         {canManage && <button className="primary-button" onClick={() => { setMode({ kind: "new" }); setSelectedId(null); }}>+ New event</button>}
       </div>
       {error && <p className="auth-notice" role="alert">{error}</p>}

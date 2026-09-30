@@ -21,8 +21,7 @@ export function SiteFooter({ home = false }: { home?: boolean }) {
             <li><a href={`${base}#inclusion`}>Inclusion</a></li>
             <li><a href={`${base}#erasmus`}>Erasmus+</a></li>
             <li><a href="/events/">Events &amp; albums</a></li>
-            <li><a href="/account/">Members area</a></li>
-            <li><a href="/admin/">Admin</a></li>
+            <li><a href="/account/">My account</a></li>
           </ul>
         </nav>
         <div>

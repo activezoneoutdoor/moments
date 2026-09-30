@@ -64,17 +64,17 @@ export function TeamPanel({ supabase, myEmail }: { supabase: SupabaseClient; myE
 
   const remove = (member: Member) => {
     const self = member.email === myEmail.toLowerCase();
-    if (!window.confirm(self ? "Remove your own access? You'll be signed out of the admin." : `Remove ${member.email}'s access? It stops immediately.`)) return;
+    if (!window.confirm(self ? "Remove your own access? You'll lose the team sections of My account." : `Remove ${member.email}'s access? It stops immediately.`)) return;
     void act(() => supabase.from("staff_roles").delete().eq("email", member.email), `${member.email} no longer has access.`);
   };
 
   return (
     <section className="album-section team-panel">
       <div className="section-heading">
-        <div><p className="eyebrow">ADMIN</p><h2>Team &amp; access</h2></div>
+        <div><h2>Users: team &amp; access</h2></div>
       </div>
       <p className="form-hint">
-        Only people listed here can open the admin. Remove someone when they leave and their access stops on their next click,
+        Only people listed here see the team sections (Events, Albums, Members, Users) in My account; everyone else sees just their member profile. Remove someone when they leave and their access stops on their next click,
         even if their account still exists. Staff sign in with Google; leaders sign in with a code sent to their email.
       </p>
 

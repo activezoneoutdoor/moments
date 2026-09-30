@@ -57,7 +57,7 @@ export function MembersPanel({ supabase }: { supabase: SupabaseClient }) {
   return (
     <section className="album-section members-panel">
       <div className="section-heading">
-        <div><p className="eyebrow">MEMBERS</p><h2>Members &amp; yearly fees</h2></div>
+        <div><h2>Members &amp; yearly fees</h2></div>
         <div className="panel-actions">
           <button className="ghost-button" onClick={() => setFeesOpen(true)}>Yearly fees</button>
           <button className="primary-button" onClick={() => setEditing("new")}>+ Add member</button>

@@ -1,4 +1,4 @@
-// Member accounts: data access and display helpers shared by the member page (/account/) and the staff admin.
+// Member accounts: data access and display helpers shared by the Profile and Members sections of My account (/account/).
 // Row level security decides what each user may read or change (supabase/migrations/20261010000000_members.sql);
 // nothing here is trusted for access control.
 import type { SupabaseClient } from "@supabase/supabase-js";
