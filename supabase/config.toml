@@ -26,3 +26,7 @@ verify_jwt = false
 # The website's contact form is public; the function checks the origin, a honeypot and a per-IP rate limit.
 [functions.contact]
 verify_jwt = false
+
+# Supabase Auth's Send Email hook calls this with a signed request (checked in the function).
+[functions.auth-email]
+verify_jwt = false

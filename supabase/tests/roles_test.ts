@@ -2,30 +2,8 @@
 // running every migration in order, with Supabase's auth helpers recreated as they behave in production.
 // Run: cd supabase/functions && deno test --allow-env --allow-read . ../tests
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { PGlite } from "npm:@electric-sql/pglite@0.5.8";
-import { pgcrypto } from "npm:@electric-sql/pglite@0.5.8/contrib/pgcrypto";
+import { addUsers, migratedDb, runAs, type User } from "./harness.ts";
 
-const MIGRATIONS = new URL("../migrations/", import.meta.url);
-
-const SUPABASE_STUBS = `
-  create role anon nologin;
-  create role authenticated nologin;
-  create role service_role nologin bypassrls;
-  create role supabase_auth_admin nologin;
-  create schema extensions;
-  create schema auth;
-  create table auth.users (id uuid primary key, email text);
-  create function auth.jwt() returns jsonb language sql stable as $$
-    select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
-  create function auth.uid() returns uuid language sql stable as $$
-    select nullif(auth.jwt()->>'sub', '')::uuid $$;
-  grant usage on schema auth, public, extensions to anon, authenticated;
-  create schema storage;
-  create table storage.objects (id uuid primary key);
-  alter table storage.objects enable row level security;
-`;
-
-type User = { id: string; email: string };
 const admin: User = { id: "00000000-0000-0000-0000-000000000001", email: "achernar@activezoneoutdoor.cy" };
 const olga: User = { id: "00000000-0000-0000-0000-000000000002", email: "olga@activezoneoutdoor.cy" };
 const newbie: User = { id: "00000000-0000-0000-0000-000000000003", email: "newbie@activezoneoutdoor.cy" };
@@ -33,29 +11,10 @@ const leo: User = { id: "00000000-0000-0000-0000-000000000004", email: "leo@gmai
 const mary: User = { id: "00000000-0000-0000-0000-000000000005", email: "mary@gmail.com" };
 
 async function setup() {
-  const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(SUPABASE_STUBS);
-  // Olga signed in as staff before roles existed; newbie's account is created later.
-  await db.query("insert into auth.users (id, email) values ($1, $2)", [olga.id, "Olga@ActiveZoneOutdoor.cy"]);
-
-  const files = [];
-  for await (const f of Deno.readDir(MIGRATIONS)) if (f.name.endsWith(".sql")) files.push(f.name);
-  for (const name of files.sort()) await db.exec(await Deno.readTextFile(new URL(name, MIGRATIONS)));
-
-  for (const u of [admin, newbie, leo, mary]) {
-    await db.query("insert into auth.users (id, email) values ($1, $2)", [u.id, u.email]);
-  }
-
-  /** Runs SQL as a signed-in user, like PostgREST does, in its own transaction. */
-  async function as<T = Record<string, unknown>>(user: User, sql: string, params: unknown[] = []) {
-    return await db.transaction(async (tx) => {
-      await tx.query("select set_config('request.jwt.claims', $1, true)", [
-        JSON.stringify({ sub: user.id, email: user.email, role: "authenticated" }),
-      ]);
-      await tx.exec("set local role authenticated");
-      return (await tx.query<T>(sql, params)).rows;
-    });
-  }
+  // Olga signed in as staff before roles existed; the others' accounts are created later.
+  const db = await migratedDb((db) => addUsers(db, { ...olga, email: "Olga@ActiveZoneOutdoor.cy" }));
+  await addUsers(db, admin, newbie, leo, mary);
+  const as = runAs(db);
 
   // Two draft events: Leo leads the first (email typed with different case and spaces), not the second.
   const [ledEvent] = await as<{ id: string }>(

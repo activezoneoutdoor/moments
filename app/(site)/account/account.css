@@ -1,0 +1,78 @@
+/* Members area (/account/). Builds on the website's tokens and components in ../site.css; loaded only here. */
+
+:root {
+  --good-bg: #dcf3e8; --good-fg: #11643f;
+  --warn-bg: #fdeccf; --warn-fg: #8a4b00;
+  --bad-bg: #fbe0da; --bad-fg: #a3321c;
+  --neutral-bg: var(--sea-100); --neutral-fg: var(--forest-800);
+  --muted-bg: #ece8df; --muted-fg: #5d665f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --good-bg: #173d2c; --good-fg: #8be0b5;
+    --warn-bg: #43301a; --warn-fg: #f6c77e;
+    --bad-bg: #472119; --bad-fg: #f5a08c;
+    --neutral-bg: #183a33; --neutral-fg: #a7e3d8;
+    --muted-bg: #22302b; --muted-fg: #a4b5ad;
+  }
+}
+
+.account-main { min-height: 70vh; padding: calc(var(--header-h) + 40px) 0 72px; background: var(--bg-tint); }
+.account-main h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); }
+.account-main h2 { font-size: 1.3rem; margin-bottom: 1rem; }
+.account-loading { text-align: center; color: var(--text-muted); padding: 4rem 0; }
+.account-error { color: var(--bad-fg); background: var(--bad-bg); border-radius: var(--radius-sm); padding: .6rem .9rem; margin: 0 0 1rem; }
+.form-ok { color: var(--good-fg); margin: 0; }
+.muted { color: var(--text-muted); }
+.small { font-size: .9rem; }
+.empty { color: var(--text-muted); text-align: center; padding: 1.5rem 0; margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.stack { display: grid; gap: 1rem; }
+.stack .btn { justify-self: start; }
+
+.btn-outline { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-outline:hover { border-color: var(--primary); }
+.link-btn { background: none; border: 0; padding: .5rem 0 0; font: inherit; font-weight: 600; color: var(--primary); cursor: pointer; }
+
+.auth-card {
+  max-width: 520px; margin: 1rem auto; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: clamp(1.75rem, 5vw, 3rem); box-shadow: var(--shadow);
+}
+.auth-card img { margin: 0 auto 1.25rem; border-radius: 50%; }
+.auth-card > p { color: var(--text-muted); }
+.auth-card .actions { justify-content: center; }
+.code-form { display: grid; gap: .9rem; text-align: left; margin: 1.5rem 0 1rem; }
+
+.app-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1.75rem; }
+.app-head h1 { margin: 0; overflow-wrap: anywhere; }
+.app-head .eyebrow { margin-bottom: .4rem; }
+.app-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: clamp(1.25rem, 3vw, 1.75rem); box-shadow: var(--shadow); min-width: 0; }
+.panel-wide { grid-column: 1 / -1; }
+@media (max-width: 760px) { .app-grid { grid-template-columns: 1fr; } }
+
+.badge { display: inline-block; font: 600 .8rem/1.2 var(--font-body); padding: .35em .75em; border-radius: 999px; white-space: nowrap; }
+.badge-good { background: var(--good-bg); color: var(--good-fg); }
+.badge-warn { background: var(--warn-bg); color: var(--warn-fg); }
+.badge-bad { background: var(--bad-bg); color: var(--bad-fg); }
+.badge-neutral { background: var(--neutral-bg); color: var(--neutral-fg); }
+.badge-muted { background: var(--muted-bg); color: var(--muted-fg); }
+.status-hero .badge { font-size: 1rem; padding: .5em 1em; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: .5rem 1.25rem; margin: 1.25rem 0; }
+.facts dt { color: var(--text-muted); font-size: .95rem; }
+.facts dd { margin: 0; font-weight: 600; }
+
+.table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.data-table { width: 100%; border-collapse: collapse; font-size: .97rem; }
+.data-table th { text-align: left; font: 600 .8rem var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); background: var(--bg-tint); }
+.data-table th, .data-table td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+.data-table tbody tr:last-child td { border-bottom: 0; }
+
+.payment-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: .5rem; }
+.payment-list li { padding: .6rem .8rem; background: var(--bg-tint); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+.history { margin-top: 1.25rem; }
+.history summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+
+.field small { font-size: .82rem; }
+.field input[readonly] { background: var(--bg-tint); color: var(--text-muted); }

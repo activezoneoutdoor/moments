@@ -166,3 +166,33 @@ h1,h2,h3,p{margin-top:0}
 .muted-cell{color:var(--muted);font-size:11.5px}
 .visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media(max-width:640px){.team-add{grid-template-columns:1fr}.team-list td:nth-child(3),.team-list th:nth-child(3){display:none}}
+
+/* Members admin (MembersPanel) */
+.members-panel{margin-top:34px}
+.member-stats{list-style:none;padding:0;margin:16px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.member-stats li{background:#fff;border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.member-stats b{display:block;font:700 26px/1.1 Manrope,sans-serif;color:var(--ink)}.member-stats span{font-size:11.5px;color:var(--muted)}
+.member-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.member-toolbar input,.member-toolbar select{font:inherit;font-size:13.5px;padding:10px 11px;border:1px solid #d9dfd2;border-radius:4px;background:#fcfdfa;color:var(--ink)}
+.member-toolbar input{flex:1 1 260px}
+.member-list{overflow-x:auto}.member-list td{vertical-align:middle}.member-list th{text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#829272;padding:0 8px 6px}
+.member-list .booking-who b,.member-list .booking-who span{overflow-wrap:anywhere}.member-open{text-align:right}
+.admin-dialog{width:min(760px,calc(100% - 24px));max-height:calc(100dvh - 24px);border:0;border-radius:10px;padding:clamp(18px,4vw,30px);background:#fff;color:var(--ink);box-shadow:0 20px 50px rgba(20,40,30,.25)}
+.admin-dialog.narrow{width:min(520px,calc(100% - 24px))}
+.admin-dialog::backdrop{background:rgba(20,32,26,.5)}
+.admin-dialog h2{font:600 22px Manrope,sans-serif;margin:0 40px 16px 0;overflow-wrap:anywhere}
+.dialog-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:0;background:#f1f3ec;font-size:22px;line-height:1;cursor:pointer;color:var(--ink)}
+.dialog-actions{display:flex;justify-content:space-between;gap:12px;margin-top:18px}.dialog-actions .primary-button{margin-left:auto}
+.dialog-section{border-top:1px solid var(--line);margin-top:22px;padding-top:18px}
+.member-form .form-grid label,.payment-form label{display:flex;flex-direction:column;gap:6px}
+.member-form input[readonly]{background:#f1f3ec;color:var(--muted)}
+.payment-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end;margin:14px 0}
+.payment-form input,.payment-form select{min-width:0}
+.payment-form .span-3{grid-column:span 3}.payment-form .span-all{grid-column:1/-1;margin:0}
+.fee-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+.year-chips{list-style:none;padding:0;margin:0 0 6px;display:flex;flex-wrap:wrap;gap:8px}
+.year-chips li{display:grid;gap:4px;justify-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:6px}.year-chips small{font-size:11px;color:var(--muted)}
+.payment-rows{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+.payment-rows li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 10px;background:#f6f7f1;border-radius:4px;font-size:12.5px}
+.payment-rows li>button{margin-left:auto;padding:0}.danger-link{color:#a1483f}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}.form-grid .span-2{grid-column:auto}.payment-form,.fee-form{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-form .span-3,.payment-form>.primary-button{grid-column:1/-1}.member-list td:nth-child(3),.member-list th:nth-child(3){display:none}}
