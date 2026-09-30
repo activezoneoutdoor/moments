@@ -11,12 +11,15 @@ import { useYearFilter, YearChips } from "./YearChips";
 
 type Mode = { kind: "view" } | { kind: "new" } | { kind: "edit"; event: AzoEvent };
 
-/** canManage: admins and staff manage everything; leaders only see the events they lead (the database filters them). */
-export function Dashboard({ supabase, canManage = true }: { supabase: SupabaseClient; canManage?: boolean }) {
+/**
+ * canManage: admins and staff manage everything; leaders only see the events they lead (the database filters them).
+ * openEventId: an event to open on arrival (from the Albums tab), scrolled to its album review.
+ */
+export function Dashboard({ supabase, canManage = true, openEventId }: { supabase: SupabaseClient; canManage?: boolean; openEventId?: string }) {
   const [events, setEvents] = useState<AzoEvent[]>([]);
   const [pending, setPending] = useState<Record<string, number>>({});
   const [booked, setBooked] = useState<Record<string, number>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(openEventId ?? null);
   const [mode, setMode] = useState<Mode>({ kind: "view" });
   const [tab, setTab] = useState<"upcoming" | "past" | "archived">("upcoming");
   const [error, setError] = useState("");
@@ -41,6 +44,18 @@ export function Dashboard({ supabase, canManage = true }: { supabase: SupabaseCl
   }, [supabase]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Opened from the Albums tab: show the event's list tab and scroll to its album review once it has loaded.
+  const [scrolledTo, setScrolledTo] = useState<string | null>(null);
+  useEffect(() => {
+    const opened = events.find((e) => e.id === openEventId);
+    if (!opened || scrolledTo === opened.id) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    setTab(opened.status === "archived" ? "archived" : new Date(opened.ends_at ?? opened.starts_at) >= today ? "upcoming" : "past");
+    setScrolledTo(opened.id);
+    window.setTimeout(() => document.getElementById("album-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+  }, [events, openEventId, scrolledTo]);
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);

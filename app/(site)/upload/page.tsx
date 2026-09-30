@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { formatEventDate } from "@/lib/events";
 import { mediaType, uploadToEvent } from "@/lib/upload";
-import { PublicShell } from "@/app/components/Shell";
+import { PublicShell } from "@/app/components/public/PublicShell";
 
 type LinkEvent = { title: string; activity: string; starts_at: string; location_name: string; accepting: boolean };
 type Item = { id: number; file: File; progress: number; state: "queued" | "uploading" | "done" | "error"; error?: string };

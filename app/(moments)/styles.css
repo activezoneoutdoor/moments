@@ -196,3 +196,12 @@ h1,h2,h3,p{margin-top:0}
 .payment-rows li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 10px;background:#f6f7f1;border-radius:4px;font-size:12.5px}
 .payment-rows li>button{margin-left:auto;padding:0}.danger-link{color:#a1483f}
 @media(max-width:640px){.form-grid{grid-template-columns:1fr}.form-grid .span-2{grid-column:auto}.payment-form,.fee-form{grid-template-columns:repeat(2,minmax(0,1fr))}.payment-form .span-3,.payment-form>.primary-button{grid-column:1/-1}.member-list td:nth-child(3),.member-list th:nth-child(3){display:none}}
+
+/* Admin sub-menu (Events, Albums, Members, Users) */
+.admin-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 26px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:8px;width:fit-content;max-width:100%}
+.admin-tabs button{border:0;background:none;padding:9px 18px;border-radius:5px;font:600 13px 'DM Sans',sans-serif;color:var(--muted);cursor:pointer}
+.admin-tabs button:hover{color:var(--green)}
+.admin-tabs button.active{background:var(--green);color:#fff}
+.members-panel,.team-panel{margin-top:0}
+.album-list{overflow-x:auto}.album-list td{vertical-align:middle}.album-list th{text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#829272;padding:0 8px 6px}
+@media(max-width:520px){.admin-tabs{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px}.admin-tabs button{padding:9px 4px}}
