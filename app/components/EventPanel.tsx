@@ -231,7 +231,7 @@ export function EventPanel({ supabase, event, canManage = true, onEdit, onChange
 
       <BookingsPanel supabase={supabase} event={event} canManage={canManage} onEventChanged={refreshEvent} />
 
-      <div className="section-heading album-heading">
+      <div className="section-heading album-heading" id="album-review">
         <div><p className="eyebrow">ALBUM · {event.album_status.toUpperCase()}</p><h2>Review media</h2></div>
         <div className="panel-actions">
           {pendingIds.length > 0 && <button className="ghost-button" disabled={!!busy} onClick={() => setStatus(pendingIds, "approved")}>Approve all {pendingIds.length}</button>}

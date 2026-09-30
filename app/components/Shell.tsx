@@ -1,8 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { roleLabels, useTeamRole, type TeamRole } from "@/lib/auth";
+import { roleLabels, type TeamRole } from "@/lib/auth";
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 /** The website's home page (app/(site)). */
@@ -33,24 +32,5 @@ export function StaffTopbar({ session, role, onSignOut }: { session: Session; ro
         <button className="sign-out" onClick={onSignOut}>Sign out</button>
       </div>
     </header>
-  );
-}
-
-export function PublicShell({ children }: { children: ReactNode }) {
-  const isTeam = useTeamRole() !== null;
-
-  return (
-    <main className="workspace-shell">
-      <header className="topbar">
-        <Wordmark label="EVENTS & ALBUMS" />
-        <nav className="account public-nav">
-          <a className="topbar-link" href={siteHomeUrl}>Website</a>
-          <a className="topbar-link" href={publicHomeUrl}>Events</a>
-          <a className={isTeam ? "admin-link staff" : "admin-link"} href={adminUrl}>{isTeam ? "Admin" : "Team sign in"}</a>
-        </nav>
-      </header>
-      {children}
-      <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>
-    </main>
   );
 }

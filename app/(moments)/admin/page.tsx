@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useTeamSession, workspaceDomain } from "@/lib/auth";
+import { useEffect, useState, type FormEvent } from "react";
+import { useTeamSession, workspaceDomain, type TeamRole } from "@/lib/auth";
+import { AlbumsPanel } from "@/app/components/AlbumsPanel";
 import { Dashboard } from "@/app/components/Dashboard";
 import { MembersPanel } from "@/app/components/MembersPanel";
 import { publicHomeUrl, StaffTopbar } from "@/app/components/Shell";
@@ -55,11 +56,61 @@ export default function AdminPage() {
           ? "Create events, share one upload link per activity, and publish the best photos and videos."
           : "The events you lead: see who's coming, record payments and review the photos and videos participants share."}</p>
       </section>
-      <Dashboard supabase={supabase} canManage={canManage} />
-      {canManage && <MembersPanel supabase={supabase} />}
-      {role === "admin" && <TeamPanel supabase={supabase} myEmail={session.user.email ?? ""} />}
+      <AdminSections supabase={supabase} role={role} myEmail={session.user.email ?? ""} />
       <footer className="workspace-footer"><span>ACTIVE ZONE OUTDOOR</span><span>MADE FOR THE OUTDOORS <b>↗</b></span></footer>
     </main>
+  );
+}
+
+type Section = "events" | "albums" | "members" | "users";
+
+const sectionLabels: Record<Section, string> = { events: "Events", albums: "Albums", members: "Members", users: "Users" };
+
+/** Which admin sections each role sees (the database enforces the same limits). */
+function sectionsFor(role: TeamRole): Section[] {
+  if (role === "admin") return ["events", "albums", "members", "users"];
+  if (role === "staff") return ["events", "albums", "members"];
+  return ["events", "albums"];
+}
+
+/** The admin's sub-menu. The open section is kept in the address (#events, #albums, …) so it survives a reload. */
+function AdminSections({ supabase, role, myEmail }: { supabase: NonNullable<ReturnType<typeof useTeamSession>["supabase"]>; role: TeamRole; myEmail: string }) {
+  const sections = sectionsFor(role);
+  const [section, setSection] = useState<Section>("events");
+  const [openEventId, setOpenEventId] = useState<string | undefined>();
+  const canManage = role === "admin" || role === "staff";
+
+  useEffect(() => {
+    const fromHash = () => {
+      const wanted = window.location.hash.slice(1) as Section;
+      setSection(sections.includes(wanted) ? wanted : "events");
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+    // sections only changes with the role, which remounts this component
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const open = (next: Section) => {
+    setSection(next);
+    window.history.replaceState(null, "", `#${next}`);
+  };
+
+  return (
+    <>
+      <nav className="admin-tabs" aria-label="Admin sections">
+        {sections.map((s) => (
+          <button key={s} className={s === section ? "active" : ""} aria-current={s === section ? "page" : undefined} onClick={() => open(s)}>
+            {sectionLabels[s]}
+          </button>
+        ))}
+      </nav>
+      {section === "events" && <Dashboard key={openEventId ?? "events"} supabase={supabase} canManage={canManage} openEventId={openEventId} />}
+      {section === "albums" && <AlbumsPanel supabase={supabase} onReview={(id) => { setOpenEventId(id); open("events"); }} />}
+      {section === "members" && canManage && <MembersPanel supabase={supabase} />}
+      {section === "users" && role === "admin" && <TeamPanel supabase={supabase} myEmail={myEmail} />}
+    </>
   );
 }
 
