@@ -2,9 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { useTeamSession, workspaceDomain } from "@/lib/auth";
-import { Dashboard } from "../components/Dashboard";
-import { publicHomeUrl, StaffTopbar } from "../components/Shell";
-import { TeamPanel } from "../components/TeamPanel";
+import { Dashboard } from "@/app/components/Dashboard";
+import { publicHomeUrl, StaffTopbar } from "@/app/components/Shell";
+import { TeamPanel } from "@/app/components/TeamPanel";
 
 export default function AdminPage() {
   const { supabase, session, role, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut } = useTeamSession();

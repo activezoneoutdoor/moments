@@ -32,8 +32,9 @@ export function buildMessage(email: Email, from: string): string {
   const headers = [
     `From: ${from}`,
     `To: ${address(email.to, email.toName)}`,
-    ...(email.replyTo ? [`Reply-To: ${email.replyTo}`] : []),
-    `Subject: ${header(email.subject)}`,
+    // Subject and Reply-To can carry visitor input (contact form), so line breaks are removed: no extra headers.
+    ...(email.replyTo ? [`Reply-To: ${email.replyTo.replace(/[\r\n]/g, "")}`] : []),
+    `Subject: ${header(email.subject.replace(/[\r\n]/g, " "))}`,
     "MIME-Version: 1.0",
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ];
@@ -44,10 +45,10 @@ export function emailFrom(): string {
   return Deno.env.get("EMAIL_FROM") ?? "AZO Moments <moments@activezoneoutdoor.cy>";
 }
 
-export async function sendEmail(email: Email): Promise<void> {
+export async function sendEmail(email: Email, from = emailFrom()): Promise<void> {
   // A dedicated sender account has its own token; otherwise the Drive account's token must include gmail.send.
   const secret = Deno.env.get("GMAIL_REFRESH_TOKEN") ? "GMAIL_REFRESH_TOKEN" : "GOOGLE_OAUTH_REFRESH_TOKEN";
-  const raw = base64(encoder.encode(buildMessage(email, emailFrom()))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const raw = base64(encoder.encode(buildMessage(email, from))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
     method: "POST",
