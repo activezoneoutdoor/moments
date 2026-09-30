@@ -50,9 +50,12 @@ The contact form posts to the `contact` edge function, which saves the message i
 
 ```sh
 supabase secrets set CONTACT_TO_EMAIL=info@activezoneoutdoor.cy   # inbox(es) for messages, comma-separated
-# optional: CONTACT_EMAIL_FROM="Active Zone Outdoor website <moments@activezoneoutdoor.cy>" (default: EMAIL_FROM's address)
+# optional sender, e.g. CONTACT_EMAIL_FROM="AZO Contact Form <web@activezoneoutdoor.cy>" (default: EMAIL_FROM's address)
+# optional Reply-To, e.g. CONTACT_REPLY_TO=info@activezoneoutdoor.cy (default: the visitor, so replying answers them)
 supabase functions deploy contact
 ```
+
+Gmail sends only as the authorised account (`moments@`) or one of its aliases: to send as another address such as `web@`, add it in that account's Gmail under **Settings → Accounts → Send mail as** and confirm it; otherwise Gmail replaces the sender with `moments@`. With `CONTACT_REPLY_TO` set, the email shows the visitor's address as a link so staff can still write to them.
 
 Messages are in **Table Editor → contact_messages**; `email_sent` and `email_error` show whether the email went out.
 

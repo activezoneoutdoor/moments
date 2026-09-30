@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
-import { contactFrom, createHandler, type Deps, renderEmail, type StoredMessage } from "./handler.ts";
+import { contactFrom, contactReplyTo, createHandler, type Deps, renderEmail, type StoredMessage } from "./handler.ts";
 
 const ORIGIN = "https://www.activezoneoutdoor.cy";
 const valid = {
@@ -175,4 +175,17 @@ Deno.test("sender reuses EMAIL_FROM's address unless overridden", () => {
   );
   assertEquals(contactFrom("Web <web@activezoneoutdoor.cy>", "x"), "Web <web@activezoneoutdoor.cy>");
   assertThrows(() => contactFrom("", ""));
+});
+
+Deno.test("Reply-To is the configured address, or else the visitor", () => {
+  assertEquals(contactReplyTo("info@activezoneoutdoor.cy", "maria@example.com"), "info@activezoneoutdoor.cy");
+  assertEquals(contactReplyTo(" ", "maria@example.com"), "maria@example.com");
+});
+
+Deno.test("with a fixed Reply-To the email says how to answer the visitor", () => {
+  const msg = { name: "Maria", email: "maria@example.com", topic: "Volunteering", message: "Hi" };
+  assertStringIncludes(renderEmail(msg).html, "Reply to this email to answer Maria directly.");
+  const fixed = renderEmail(msg, { replyToVisitor: false }).html;
+  assertStringIncludes(fixed, 'To answer Maria, write to <a href="mailto:maria@example.com">maria@example.com</a>.');
+  assert(!fixed.includes("Reply to this email"));
 });

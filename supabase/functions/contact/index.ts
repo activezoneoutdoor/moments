@@ -8,12 +8,14 @@
 // Contact-form specific:
 //   CONTACT_TO_EMAIL        inbox(es) that receive messages, comma-separated
 //   CONTACT_ALLOWED_ORIGINS optional; website origins allowed to send (default: ALLOWED_ORIGINS, the app's own origins)
-//   CONTACT_EMAIL_FROM      optional sender override; by default EMAIL_FROM's address as "Active Zone Outdoor website"
+//   CONTACT_EMAIL_FROM      optional sender override; by default EMAIL_FROM's address as "Active Zone Outdoor website".
+//                           It must be the Gmail account itself or one of its "Send mail as" aliases.
+//   CONTACT_REPLY_TO        optional Reply-To (e.g. info@activezoneoutdoor.cy); by default the visitor's email
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically.
 
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "../_shared/gmail.ts";
-import { contactFrom, createHandler, renderEmail } from "./handler.ts";
+import { contactFrom, contactReplyTo, createHandler, renderEmail } from "./handler.ts";
 
 const env = (name: string) => Deno.env.get(name)?.trim() ?? "";
 const list = (value: string) => value.split(",").map((s) => s.trim()).filter(Boolean);
@@ -53,7 +55,8 @@ const handler = createHandler({
     const to = list(env("CONTACT_TO_EMAIL"));
     if (to.length === 0) throw new Error("CONTACT_TO_EMAIL is not set");
     const from = contactFrom(env("CONTACT_EMAIL_FROM"), env("EMAIL_FROM"));
-    await sendEmail({ to: to.join(", "), replyTo: msg.email, ...renderEmail(msg) }, from);
+    const replyTo = contactReplyTo(env("CONTACT_REPLY_TO"), msg.email);
+    await sendEmail({ to: to.join(", "), replyTo, ...renderEmail(msg, { replyToVisitor: replyTo === msg.email }) }, from);
   },
 });
 

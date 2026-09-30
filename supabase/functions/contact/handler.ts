@@ -216,8 +216,21 @@ const escapeHtml = (s: string) =>
       ]!,
   );
 
-/** Builds the notification email sent to the organisation. */
-export function renderEmail(msg: ContactMessage) {
+/** Reply-To of the notification: the configured address (e.g. info@), or else the visitor so staff can answer directly. */
+export function contactReplyTo(configured: string, visitorEmail: string): string {
+  return configured.trim() || visitorEmail;
+}
+
+/**
+ * Builds the notification email sent to the organisation. With `replyToVisitor` false (a fixed Reply-To such as
+ * info@), the footer tells staff to write to the visitor's address instead of just replying.
+ */
+export function renderEmail(msg: ContactMessage, { replyToVisitor = true }: { replyToVisitor?: boolean } = {}) {
+  const name = escapeHtml(msg.name);
+  const email = escapeHtml(msg.email);
+  const howToAnswer = replyToVisitor
+    ? `Reply to this email to answer ${name} directly.`
+    : `To answer ${name}, write to <a href="mailto:${email}">${email}</a>.`;
   return {
     subject: `Website enquiry: ${msg.topic} (from ${msg.name})`,
     text: `Name: ${msg.name}\nEmail: ${msg.email}\nTopic: ${msg.topic}\n\n${msg.message}\n`,
@@ -225,8 +238,6 @@ export function renderEmail(msg: ContactMessage) {
 <strong>Email:</strong> <a href="mailto:${escapeHtml(msg.email)}">${escapeHtml(msg.email)}</a><br>
 <strong>Topic:</strong> ${escapeHtml(msg.topic)}</p>
 <p style="white-space:pre-wrap">${escapeHtml(msg.message)}</p>
-<p style="color:#888;font-size:12px">Sent from the contact form on activezoneoutdoor.cy. Reply to this email to answer ${
-      escapeHtml(msg.name)
-    } directly.</p>`,
+<p style="color:#888;font-size:12px">Sent from the contact form on activezoneoutdoor.cy. ${howToAnswer}</p>`,
   };
 }
