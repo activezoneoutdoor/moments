@@ -23,7 +23,7 @@ export async function fetchTeamRole(supabase: SupabaseClient): Promise<TeamRole 
  * The session for My account (/account/). Everyone signs in here: members with a code sent to their email, the
  * team (admins, staff, leaders) with the same code or, with an Active Zone Outdoor Workspace account, Google.
  * `role` comes from the database (a removed team member gets null and sees only their member profile).
- * `member` is the signed-in person's member record, created on first sign-in; admins and staff have none.
+ * `member` is the signed-in person's member record (everyone has one, the team included), created on first sign-in.
  */
 export function useAccountSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -54,7 +54,7 @@ export function useAccountSession() {
       setChecking(true);
       try {
         const nextRole = await fetchTeamRole(supabase);
-        const nextMember = nextRole === "admin" || nextRole === "staff" ? null : await claimMembership(supabase);
+        const nextMember = await claimMembership(supabase);
         setSession(next);
         setRole(nextRole);
         setMember(nextMember);

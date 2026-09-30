@@ -40,6 +40,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 
 18. Run `supabase/migrations/20261010000000_members.sql`. It adds member accounts (see **Members** below).
 19. Send sign-in codes through Gmail: `supabase functions deploy auth-email`, then in **Authentication → Hooks → Send Email** choose **HTTPS**, enter `https://<project-ref>.supabase.co/functions/v1/auth-email`, generate the secret and save it with `supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_…"`. Codes then come from the same Workspace sender as booking emails (optional `AUTH_EMAIL_FROM`, e.g. `Active Zone Outdoor <moments@activezoneoutdoor.cy>`; it must be that account or one of its Gmail aliases), in English and Greek. The email templates from step 16 are no longer used.
+20. Run `supabase/migrations/20261011000000_staff_profiles.sql` (or `supabase db push`). Staff and admins then get a profile in My account too.
 
 ## Website and contact form
 
@@ -64,7 +65,7 @@ Anyone can sign in at `/account/` with a code sent to their email (no password);
 - **Payments:** record cash or bank-transfer payments in the member's window (the amount is pre-filled with that year's fee). Members see their years and payment history on `/account/`.
 - **Status:** *Online account* (signed up on the website), *Registered member* (registered with the NGO) or *Former member*.
 
-Members can change only their name and phone; status, member number, dates and payments are staff-only, enforced by the database (`members` policies and the `guard_member_changes` trigger). Leaders don't see member data; staff and admins aren't members themselves.
+Members can change only their name and phone; status, member number, dates and payments are staff-only, enforced by the database (`members` policies and the `guard_member_changes` trigger). Leaders don't see member data. Everyone who signs in has a profile, the team included, so staff and admins appear in the Members list too and can be registered as members like anyone else.
 
 ## Roles
 
