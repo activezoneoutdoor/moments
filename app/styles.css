@@ -149,3 +149,20 @@ h1,h2,h3,p{margin-top:0}
 .booking-payment button{border:1px solid #c8d6b3;background:#fff;color:var(--green);border-radius:3px;padding:2px 7px;font-size:10.5px;font-weight:600;cursor:pointer}
 @media(max-width:600px){.booking-payment{width:110px}}
 .booking-list .booking-when{white-space:normal}
+
+/* Roles: email-code sign-in for leaders, the team list for admins */
+.code-sign-in{width:min(100%,330px);margin:22px 0 8px;padding-top:18px;border-top:1px solid var(--line)}.code-sign-in .eyebrow{margin-bottom:10px}
+.code-sign-in label{display:flex;flex-direction:column;gap:6px;font-size:11.5px;font-weight:600;color:#4c5a50}
+.code-sign-in input,.team-add input,.team-add select,.team-list select{font:inherit;font-size:13.5px;font-weight:400;padding:10px 11px;border:1px solid #d9dfd2;border-radius:4px;background:#fcfdfa;color:var(--ink)}
+.code-sign-in input:focus,.team-add input:focus,.team-add select:focus,.team-list select:focus{outline:2px solid #a8c57a;outline-offset:0;border-color:transparent}
+.code-actions{display:flex;align-items:center;gap:14px;margin-top:10px}.code-actions .link-button{padding:0}
+.role-pill{background:var(--lime);color:var(--green)}
+.team-panel{margin-top:34px}
+.team-add{display:grid;grid-template-columns:minmax(0,1fr) 150px auto;gap:12px;align-items:end;margin:16px 0 4px}
+.team-add label{display:flex;flex-direction:column;gap:6px;font-size:11.5px;font-weight:600;color:#4c5a50}
+.team-add .team-role-help{grid-column:1/-1;margin:0}
+.team-list select{padding:6px 8px;font-size:12.5px}.team-list td{vertical-align:middle}.team-list .pill{margin-left:8px}
+.team-list th{text-align:left;font-size:9.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#829272;padding:0 8px 6px}
+.muted-cell{color:var(--muted);font-size:11.5px}
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:640px){.team-add{grid-template-columns:1fr}.team-list td:nth-child(3),.team-list th:nth-child(3){display:none}}

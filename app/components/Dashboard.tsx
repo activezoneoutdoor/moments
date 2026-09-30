@@ -11,7 +11,8 @@ import { useYearFilter, YearChips } from "./YearChips";
 
 type Mode = { kind: "view" } | { kind: "new" } | { kind: "edit"; event: AzoEvent };
 
-export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
+/** canManage: admins and staff manage everything; leaders only see the events they lead (the database filters them). */
+export function Dashboard({ supabase, canManage = true }: { supabase: SupabaseClient; canManage?: boolean }) {
   const [events, setEvents] = useState<AzoEvent[]>([]);
   const [pending, setPending] = useState<Record<string, number>>({});
   const [booked, setBooked] = useState<Record<string, number>>({});
@@ -62,8 +63,8 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
   return (
     <section className="album-section dashboard">
       <div className="section-heading">
-        <div><p className="eyebrow">EVENTS & ALBUMS</p><h2>Your activities</h2></div>
-        <button className="primary-button" onClick={() => { setMode({ kind: "new" }); setSelectedId(null); }}>+ New event</button>
+        <div><p className="eyebrow">EVENTS & ALBUMS</p><h2>{canManage ? "Your activities" : "Events you lead"}</h2></div>
+        {canManage && <button className="primary-button" onClick={() => { setMode({ kind: "new" }); setSelectedId(null); }}>+ New event</button>}
       </div>
       {error && <p className="auth-notice" role="alert">{error}</p>}
 
@@ -75,7 +76,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
             {archived.length > 0 && <button role="tab" aria-selected={tab === "archived"} className={tab === "archived" ? "active" : ""} onClick={() => chooseTab("archived")}>Archived <span>{archived.length}</span></button>}
           </div>
           <YearChips {...yearFilter} onChange={yearFilter.setYear} />
-          {list.length === 0 && <p className="empty-state">{{ upcoming: "No upcoming events. Create one to get an upload link.", past: "No past events yet.", archived: "No archived events." }[tab]}</p>}
+          {list.length === 0 && <p className="empty-state">{{ upcoming: canManage ? "No upcoming events. Create one to get an upload link." : "No upcoming events where you're the leader.", past: "No past events yet.", archived: "No archived events." }[tab]}</p>}
           {list.map((e) => (
             <button key={e.id} className={`event-row${e.id === selectedId ? " selected" : ""}`} onClick={() => { setSelectedId(e.id); setMode({ kind: "view" }); }}>
               <EventThumb supabase={supabase} event={e} />
@@ -94,7 +95,7 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
         </aside>
 
         <div className="dashboard-main">
-          {mode.kind !== "view" ? (
+          {canManage && mode.kind !== "view" ? (
             <EventForm
               key={mode.kind === "edit" ? mode.event.id : "new"}
               supabase={supabase}
@@ -107,9 +108,19 @@ export function Dashboard({ supabase }: { supabase: SupabaseClient }) {
               key={selected.id}
               supabase={supabase}
               event={selected}
+              canManage={canManage}
               onEdit={() => setMode({ kind: "edit", event: selected })}
               onChanged={(next) => { replaceEvent(next); void load(); }}
             />
+          ) : !canManage ? (
+            <div className="empty-panel">
+              <p className="eyebrow">AS EVENT LEADER</p>
+              <ol>
+                <li><b>Choose an event</b> you lead from the list.</li>
+                <li><b>Bookings</b>: see who&apos;s coming, record payments and cancel bookings when needed.</li>
+                <li><b>Album</b>: approve or hide the photos and videos participants shared. Staff publish the album.</li>
+              </ol>
+            </div>
           ) : (
             <div className="empty-panel">
               <p className="eyebrow">HOW IT WORKS</p>

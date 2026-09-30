@@ -6,10 +6,10 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 
 | Page | Who | Purpose |
 | --- | --- | --- |
-| `/` | Public | Upcoming events and past albums. The header's **Staff sign in** button (**Admin** once signed in) opens the admin section |
+| `/` | Public | Upcoming events and past albums. The header's **Team sign in** button (**Admin** once signed in) opens the admin section |
 | `/event/?slug=<slug>` | Public | Event details and the published album |
 | `/upload/?t=<token>` | Anyone with the link | Upload photos and videos (up to 2 GB each, resumable) |
-| `/admin/` | Staff (`@activezoneoutdoor.cy`) | Create/edit events, copy/close/rotate upload links, review media, publish albums |
+| `/admin/` | Team members (see **Roles**) | Staff: create/edit events, copy/close/rotate upload links, review media, publish albums. Leaders: bookings, payments and album review for the events they lead. Admins: also the team list |
 
 ## Supabase setup
 
@@ -32,6 +32,23 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 12. Run `supabase/migrations/20261005000000_booking_emails.sql`. It adds booking emails (see **Booking emails** below).
 13. Run `supabase/migrations/20261006000000_event_cancellation_and_leader_emails.sql`. It adds event cancellation emails and leader notifications (see **Booking emails** below).
 14. Run `supabase/migrations/20261007000000_payments.sql`. It adds payments by link (see **Payments** below).
+15. Run `supabase/migrations/20261008000000_roles.sql`. Access now comes from a team list instead of the email domain (see **Roles** below). It makes `achernar@activezoneoutdoor.cy` the first admin and keeps everyone who already signed in with an `@activezoneoutdoor.cy` account as staff. The Before User Created hook from step 5 stays selected; the migration updates it to also allow email-code sign-ups.
+16. Enable email codes for leaders: **Authentication → Sign In / Providers → Email**, turn on **Email**, and under **Authentication → Emails** change both the **Magic Link** and **Confirm signup** templates (the first sign-in uses the second) to show the code, for example `<p>Your Active Zone Outdoor sign-in code: <strong>{{ .Token }}</strong></p>`. Supabase's built-in email sender allows only a few emails per hour; that's enough for a handful of leaders, and a Gmail-based sender will replace it when members get accounts.
+
+## Roles
+
+Who can do what is decided by the `staff_roles` table, not by the email domain. Admins manage it under **Team & access** at the bottom of the admin page.
+
+| Role | Who | Can |
+| --- | --- | --- |
+| Admin | `@activezoneoutdoor.cy` only | Everything, including the team list |
+| Staff | `@activezoneoutdoor.cy` only | Events, upload links, albums, bookings and payments |
+| Leader | Any email | Only events whose **Leader email** is theirs: see and cancel bookings, record payments, approve or hide uploads. Can't edit, publish or archive events |
+
+- **When someone leaves**, remove them from the team list. Their access stops on their next click, even if their Google or email account still exists, because every database request and staff function checks the table.
+- Having a `@activezoneoutdoor.cy` account alone gives no access; an admin has to add it.
+- There is always at least one admin: the last one can't be removed or demoted.
+- Staff sign in with Google. Leaders sign in with a code sent to their email (they don't need a Workspace account).
 
 ## Google Drive setup (album storage)
 
@@ -57,7 +74,7 @@ The functions in `supabase/functions/` hold the Google credentials; the browser 
 | `upload-start` | Participant upload page | Checks the upload link, creates the event's Drive folder on first use, and opens a resumable Drive upload session for the browser |
 | `upload-finish` | Participant upload page | Confirms the file is in the event folder and records it for review |
 | `album-publish` | Staff dashboard | Publishes or unpublishes an album and syncs Drive link sharing, so only approved files are public |
-| `media-thumbnail` | Staff dashboard | Returns an upload's preview image through the app's Drive access, so staff browsers don't need Google cookies (which browsers often block for other sites) |
+| `media-thumbnail` | Staff and leader dashboard | Returns an upload's preview image through the app's Drive access, so browsers don't need Google cookies (which browsers often block for other sites) |
 | `event-photo` | Staff dashboard | Saves, replaces or removes the event photo in the event's Drive folder and turns its link sharing on or off when the event is restored or archived |
 | `album-sync` | Staff dashboard | Brings an event's album in line with its Drive folder: files added there go to review, files deleted there leave the album, renames are picked up, and the folder is renamed/moved to match the event |
 | `send-emails` | Site, and a cron job | Sends queued booking emails through Gmail and queues day-before reminders |
@@ -75,7 +92,7 @@ supabase secrets set \
 supabase functions deploy
 ```
 
-`supabase/config.toml` deploys all functions with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token or staff session). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env` inside `supabase/functions` for the unit tests.
+`supabase/config.toml` deploys all functions with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token, or a team role in `staff_roles`). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env --allow-read . ../tests` inside `supabase/functions` for the unit tests; `../tests` runs the database's row level security rules on an in-memory Postgres (PGlite).
 
 ### Bookings
 
@@ -165,9 +182,9 @@ If an upload fails with "Couldn't reach the upload service", the browser got no 
 1. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the Supabase project. Leave `NEXT_PUBLIC_BASE_PATH` empty for local development.
 2. In Supabase **Authentication → URL Configuration**, add `http://localhost:3000/**` to the allowed redirect URLs.
 3. From the repository folder, run `npm install`, then `npm run dev`.
-4. Open [http://localhost:3000](http://localhost:3000) for the public events page, or [http://localhost:3000/admin/](http://localhost:3000/admin/) to sign in with an `@activezoneoutdoor.cy` Google Workspace account.
+4. Open [http://localhost:3000](http://localhost:3000) for the public events page, or [http://localhost:3000/admin/](http://localhost:3000/admin/) to sign in with a team account.
 
-The app requests Google with `hd=activezoneoutdoor.cy` to guide account selection, then checks the returned account email before showing AZO Moments. Supabase Auth's Before User Created hook enforces the domain for new accounts. The database's Row Level Security policies apply the same domain check to every staff write. Participants never sign in; the upload link token is their only access.
+Staff sign in with Google (the app passes `hd=activezoneoutdoor.cy` to guide account selection); leaders with an email code. After sign-in the app asks the database for the account's role (`my_role()`) and shows nothing to accounts without one. That check is only for the interface: the database's Row Level Security policies and the staff functions check `staff_roles` on every request. Supabase Auth's Before User Created hook allows Google sign-ups only for `@activezoneoutdoor.cy` and email-code sign-ups for anyone; an account alone gives no access. Participants never sign in; the upload link token is their only access.
 
 ## GitHub Pages deployment
 

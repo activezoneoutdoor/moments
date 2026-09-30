@@ -15,6 +15,8 @@ type UploadLink = { token: string; open: boolean; expires_at: string | null };
 type Props = {
   supabase: SupabaseClient;
   event: AzoEvent;
+  /** False for event leaders: they manage bookings and review media, but don't edit, share, publish or archive. */
+  canManage?: boolean;
   onEdit: () => void;
   onChanged: (event: AzoEvent) => void;
 };
@@ -26,7 +28,7 @@ const filters: { key: MediaStatus | "all"; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
+export function EventPanel({ supabase, event, canManage = true, onEdit, onChanged }: Props) {
   const [link, setLink] = useState<UploadLink | null>(null);
   const [media, setMedia] = useState<Media[]>([]);
   const [filter, setFilter] = useState<MediaStatus | "all">("pending");
@@ -95,7 +97,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
     // onChanged is recreated by the parent on every render; syncing once per opened event is intended.
   }, [supabase, event.id, load]);
 
-  useEffect(() => { void syncWithDrive(true); }, [syncWithDrive]);
+  // Album sync is staff-only; leaders review what participants uploaded through the link.
+  useEffect(() => { if (canManage) void syncWithDrive(true); }, [canManage, syncWithDrive]);
 
   /** Re-syncs Drive sharing so a published album only exposes approved files. */
   const syncPublishedAlbum = () => callFunction(supabase, "album-publish", { eventId: event.id, publish: true });
@@ -183,8 +186,8 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
     <section className="event-panel">
       {coverUrl
         ? <img className="panel-cover" src={coverUrl} alt="" referrerPolicy="no-referrer" />
-        : <button className="panel-cover empty" onClick={onEdit}>+ Add an event photo</button>}
-      {archived && (
+        : canManage && <button className="panel-cover empty" onClick={onEdit}>+ Add an event photo</button>}
+      {archived && canManage && (
         <div className="archived-banner" role="status">
           <span><b>Archived.</b> Hidden from the public site; uploads are closed. Photos, videos and the Drive folder are kept.</span>
           <button className="primary-button" disabled={!!busy} onClick={restore}>Restore event</button>
@@ -202,13 +205,13 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
           </p>
         </div>
         <div className="panel-actions">
-          <button className="ghost-button" onClick={onEdit}>Edit details</button>
-          <button className="ghost-button" disabled={!!busy || syncing} onClick={() => { setMessage(""); void syncWithDrive(false); }}>{syncing ? "Syncing…" : "Sync with Drive"}</button>
+          {canManage && <button className="ghost-button" onClick={onEdit}>Edit details</button>}
+          {canManage && <button className="ghost-button" disabled={!!busy || syncing} onClick={() => { setMessage(""); void syncWithDrive(false); }}>{syncing ? "Syncing…" : "Sync with Drive"}</button>}
           {event.status !== "draft" && !archived && <a className="ghost-button" href={eventPageUrl(event.slug)} target="_blank" rel="noreferrer">Public page ↗</a>}
         </div>
       </div>
 
-      <div className="upload-link-card">
+      {canManage && <div className="upload-link-card">
         <div>
           <p className="eyebrow">PARTICIPANT UPLOAD LINK</p>
           {link ? (
@@ -224,17 +227,17 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
           <button className="ghost-button" onClick={rotateLink} disabled={!link || !!busy}>New link</button>
           {event.drive_folder_id && <a className="ghost-button" href={driveFolderUrl(event.drive_folder_id)} target="_blank" rel="noreferrer">Drive folder ↗</a>}
         </div>
-      </div>
+      </div>}
 
-      <BookingsPanel supabase={supabase} event={event} onEventChanged={refreshEvent} />
+      <BookingsPanel supabase={supabase} event={event} canManage={canManage} onEventChanged={refreshEvent} />
 
       <div className="section-heading album-heading">
         <div><p className="eyebrow">ALBUM · {event.album_status.toUpperCase()}</p><h2>Review media</h2></div>
         <div className="panel-actions">
           {pendingIds.length > 0 && <button className="ghost-button" disabled={!!busy} onClick={() => setStatus(pendingIds, "approved")}>Approve all {pendingIds.length}</button>}
-          <button className="primary-button" disabled={!!busy || (event.album_status !== "published" && (counts.approved === 0 || archived))} onClick={togglePublish}>
+          {canManage && <button className="primary-button" disabled={!!busy || (event.album_status !== "published" && (counts.approved === 0 || archived))} onClick={togglePublish}>
             {busy === "publish" ? "Working…" : event.album_status === "published" ? "Unpublish album" : "Publish album"}
-          </button>
+          </button>}
         </div>
       </div>
       {event.album_status !== "published" && event.status === "draft" && counts.approved > 0 && <p className="form-hint">The album will be visible once the event is published too.</p>}
@@ -265,7 +268,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
                 <span className="media-actions">
                   {item.status !== "approved" && <button disabled={!!busy} onClick={() => setStatus([item.id], "approved")}>Approve</button>}
                   {item.status !== "hidden" && <button disabled={!!busy} onClick={() => setStatus([item.id], "hidden")}>Hide</button>}
-                  {item.status === "approved" && !isVideo(item) && event.cover_media_id !== item.id && <button disabled={!!busy} onClick={() => setCover(item.id)} title="Use as event photo">Event photo</button>}
+                  {canManage && item.status === "approved" && !isVideo(item) && event.cover_media_id !== item.id && <button disabled={!!busy} onClick={() => setCover(item.id)} title="Use as event photo">Event photo</button>}
                 </span>
               </figcaption>
             </figure>
@@ -273,7 +276,7 @@ export function EventPanel({ supabase, event, onEdit, onChanged }: Props) {
         </div>
       )}
 
-      {!archived && (
+      {!archived && canManage && (
         <div className="danger-zone">
           {!archiveOpen ? (
             <button className="ghost-button danger" onClick={() => setArchiveOpen(true)}>Archive event…</button>
