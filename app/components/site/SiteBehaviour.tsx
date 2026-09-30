@@ -119,13 +119,18 @@ export function SiteBehaviour() {
         }
 
         const data = Object.fromEntries(new FormData(form)) as Record<string, string>;
-        const openEmailApp = () => {
-          const subject = `Website enquiry: ${data.topic}`;
-          const body = `${data.message}\n\n— ${data.name} (${data.email})`;
-          window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-          setStatus("Thanks! Your email app should open with your message ready to send.", "ok");
+        const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Website enquiry: ${data.topic}`)}&body=${
+          encodeURIComponent(`${data.message}\n\n— ${data.name} (${data.email})`)}`;
+        /** The message was NOT sent: say so, and offer the visitor's email app (prefilled) and the phone. */
+        const notSent = (reason: string) => {
+          status.replaceChildren(
+            `${reason} `,
+            Object.assign(document.createElement("a"), { href: mailto, textContent: "Email us instead" }),
+            ` (your message is filled in) or call ${PHONE}.`,
+          );
+          status.className = "form-status is-error";
         };
-        if (!CONTACT_ENDPOINT) return openEmailApp();
+        if (!CONTACT_ENDPOINT) return notSent("Online messages aren't set up yet.");
 
         submitBtn.disabled = true;
         submitBtn.textContent = "Sending…";
@@ -141,9 +146,14 @@ export function SiteBehaviour() {
           form.reset();
           setStatus("Thank you! Your message has been sent — we'll get back to you soon.", "ok");
         } catch (err) {
-          // Function unreachable (offline, not deployed yet): fall back to the visitor's email app.
-          if (err instanceof TypeError) openEmailApp();
-          else setStatus(`${(err as Error).message} You can also call us on ${PHONE}.`, "error");
+          if (err instanceof TypeError) {
+            // No readable answer: offline, the function isn't deployed, or it doesn't allow this site's origin
+            // (CONTACT_ALLOWED_ORIGINS / ALLOWED_ORIGINS). The browser console shows which.
+            console.error(`Contact form: couldn't reach ${CONTACT_ENDPOINT} from ${window.location.origin}`, err);
+            notSent("Sorry, your message couldn't be sent right now.");
+          } else {
+            notSent(`Sorry, your message couldn't be sent: ${(err as Error).message}`);
+          }
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = "Send message";
