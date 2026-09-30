@@ -27,7 +27,7 @@ serveJson(async () => {
   const { data, error } = await db.rpc("claim_emails", { p_limit: 25 });
   if (error) throw error;
 
-  const siteUrl = Deno.env.get("SITE_URL") ?? "https://moments.activezoneoutdoor.cy";
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://www2.activezoneoutdoor.cy";
   const replyTo = Deno.env.get("EMAIL_REPLY_TO") ?? null;
   const result = { sent: 0, skipped: 0, failed: 0 };
 

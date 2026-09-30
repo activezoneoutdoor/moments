@@ -17,7 +17,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 2. Add Supabase's Google callback URL (`https://<project-ref>.supabase.co/auth/v1/callback`) to the Google OAuth client's authorized redirect URIs.
 3. In Supabase **Authentication → URL Configuration**, set the site URL and allow these redirect URLs:
    - `http://localhost:3000/**`
-   - `https://moments.activezoneoutdoor.cy/**`
+   - `https://www2.activezoneoutdoor.cy/**`
 
    This is Supabase's allowlist of where sign-in may return to. Staff sign in on `/admin/` and are sent back there.
 4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
@@ -88,7 +88,7 @@ supabase secrets set \
   GOOGLE_OAUTH_CLIENT_SECRET=<client-secret> \
   GOOGLE_OAUTH_REFRESH_TOKEN=<refresh-token> \
   AZO_SHARED_DRIVE_ID=<shared-drive-id> \
-  ALLOWED_ORIGINS=https://moments.activezoneoutdoor.cy,http://localhost:3000
+  ALLOWED_ORIGINS=https://www2.activezoneoutdoor.cy,http://localhost:3000
 supabase functions deploy
 ```
 
@@ -130,7 +130,7 @@ Emails are sent through Gmail as a Workspace user, so they're free (about 2,000 
      GMAIL_REFRESH_TOKEN=<refresh token for moments@> \
      EMAIL_FROM="AZO Moments <moments@activezoneoutdoor.cy>" \
      EMAIL_REPLY_TO=<where replies go when an event has no leader email> \
-     SITE_URL=https://moments.activezoneoutdoor.cy
+     SITE_URL=https://www2.activezoneoutdoor.cy
    supabase functions deploy
    ```
    Without `GMAIL_REFRESH_TOKEN`, the Drive token is used, and it then needs the `gmail.send` scope too.
@@ -175,7 +175,7 @@ If an upload fails with "Cannot create folders in the Shared Drive" (visible in 
 If an upload fails with "Couldn't reach the upload service", the browser got no answer from `upload-start`:
 - In Supabase, open **Edge Functions → upload-start**: check that it exists and look at its **Logs**.
 - Redeploy with `supabase functions deploy` so `verify_jwt = false` from `supabase/config.toml` applies.
-- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://moments.activezoneoutdoor.cy`) to the `ALLOWED_ORIGINS` secret and redeploy.
+- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://www2.activezoneoutdoor.cy`) to the `ALLOWED_ORIGINS` secret and redeploy.
 
 ## Run locally
 
@@ -188,17 +188,17 @@ Staff sign in with Google (the app passes `hd=activezoneoutdoor.cy` to guide acc
 
 ## GitHub Pages deployment
 
-The workflow in `.github/workflows/pages.yml` builds and deploys this repository to `https://moments.activezoneoutdoor.cy/` whenever a change is pushed to `main`.
+The workflow in `.github/workflows/pages.yml` builds and deploys this repository to `https://www2.activezoneoutdoor.cy/` whenever a change is pushed to `main`.
 
-1. **Finish Supabase setup first.** In the Supabase project, enable Google sign-in, apply the workspace signup migration and hook above, and set the production Site URL to `https://moments.activezoneoutdoor.cy/`.
-2. **Allow the admin redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://moments.activezoneoutdoor.cy/**` (keep `http://localhost:3000/**` there too if you run locally).
+1. **Finish Supabase setup first.** In the Supabase project, enable Google sign-in, apply the workspace signup migration and hook above, and set the production Site URL to `https://www2.activezoneoutdoor.cy/`.
+2. **Allow the admin redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://www2.activezoneoutdoor.cy/**` (keep `http://localhost:3000/**` there too if you run locally).
 3. **Add the public Supabase browser settings to GitHub.** Open the repository on GitHub, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. Add both:
    - Name: `NEXT_PUBLIC_SUPABASE_URL` · Value: the Supabase project's URL.
    - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY` · Value: the project's publishable key (or legacy anon key).
 
    These two values are included in the public website bundle, so they are not secrets. Keep the Google OAuth client secret in Supabase's Google provider settings. Never put a Supabase service-role key in GitHub variables or the app.
-4. **Enable Pages deployment.** In GitHub, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. Under **Custom domain**, enter `moments.activezoneoutdoor.cy`, and at the DNS provider add a `CNAME` record for `moments` pointing to `<github-owner>.github.io`. Once the DNS check passes, tick **Enforce HTTPS**.
+4. **Enable Pages deployment.** In GitHub, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. Under **Custom domain**, enter `www2.activezoneoutdoor.cy`, and at the DNS provider add a `CNAME` record for `www2` pointing to `<github-owner>.github.io`. Once the DNS check passes, tick **Enforce HTTPS**.
 5. **Commit and push to `main`.** Make sure the commit includes `package-lock.json` and `.github/workflows/pages.yml`. Pushing to `main` starts the deploy automatically.
-6. **Check the result.** In the repository, open **Actions**, select the latest **Deploy to GitHub Pages** run, and wait for both build and deploy jobs to finish successfully. The site will be at [https://moments.activezoneoutdoor.cy/](https://moments.activezoneoutdoor.cy/).
+6. **Check the result.** In the repository, open **Actions**, select the latest **Deploy to GitHub Pages** run, and wait for both build and deploy jobs to finish successfully. The site will be at [https://www2.activezoneoutdoor.cy/](https://www2.activezoneoutdoor.cy/).
 
 The workflow uses the custom domain's root path; no `/moments` URL prefix or manual build upload is needed.

@@ -13,14 +13,14 @@ const row: QueuedEmail = {
 };
 
 Deno.test("confirmation has the Cyprus time, seats, private link and replies to the leader", () => {
-  const email = renderBookingEmail(row, "https://moments.activezoneoutdoor.cy/");
+  const email = renderBookingEmail(row, "https://www2.activezoneoutdoor.cy/");
   assertEquals(email.subject, "You're booked: Sunrise SUP <Konnos>");
   assertEquals(email.to, "maria@example.com");
   assertEquals(email.replyTo, "andreas@activezoneoutdoor.cy");
   assertStringIncludes(email.text, "Hi Maria, you're booked!");
   assertStringIncludes(email.text, "When: Sat, 3 Oct 2026 · 08:00–10:00");
   assertStringIncludes(email.text, "Booking: 2 seats: Maria, Nikos");
-  assertStringIncludes(email.text, "https://moments.activezoneoutdoor.cy/booking/?t=tok%2F1");
+  assertStringIncludes(email.text, "https://www2.activezoneoutdoor.cy/booking/?t=tok%2F1");
   assertStringIncludes(email.html, "Sunrise SUP &lt;Konnos&gt;");
 });
 
