@@ -1,3 +1,5 @@
+import { AdminLink } from "./AdminLink";
+
 /**
  * The website's header. On the home page section links are "#about"; elsewhere they point back to "/#about".
  * Pages without the hero image use `solid` so the header is readable from the start.
@@ -36,6 +38,7 @@ export function SiteHeader({ home = false, solid = false, current }: { home?: bo
                 Members
               </a>
             </li>
+            <AdminLink />
             <li><a className="btn btn-sm btn-accent" href={`${base}#contact`}>Contact us</a></li>
           </ul>
         </nav>

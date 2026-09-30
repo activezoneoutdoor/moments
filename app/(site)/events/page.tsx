@@ -29,8 +29,7 @@ export default function EventsPage() {
   return (
     <PublicShell>
       <section className="welcome">
-        <p className="eyebrow">ACTIVE ZONE OUTDOOR · CYPRUS</p>
-        <h1>Events &amp; albums.</h1>
+        <h1>Events &amp; albums</h1>
         <p>Upcoming activities and the stories from the ones we&apos;ve shared.</p>
       </section>
       {events === null ? <p className="empty-state">Loading events…</p> : (
