@@ -1,5 +1,5 @@
 function allowedOrigins(): string[] {
-  return (Deno.env.get("ALLOWED_ORIGINS") ?? "https://moments.activezoneoutdoor.cy,http://localhost:3000")
+  return (Deno.env.get("ALLOWED_ORIGINS") ?? "https://www2.activezoneoutdoor.cy,http://localhost:3000")
     .split(",").map((origin) => origin.trim()).filter(Boolean);
 }
 
