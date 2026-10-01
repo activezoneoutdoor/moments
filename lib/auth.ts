@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { claimMembership, type Member } from "@/lib/members";
+import { claimMembership, startAccountLink, type Member } from "@/lib/members";
 
 export const workspaceDomain = "activezoneoutdoor.cy";
 
@@ -19,6 +19,30 @@ export async function fetchTeamRole(supabase: SupabaseClient): Promise<TeamRole 
   return (data as TeamRole | null) ?? null;
 }
 
+/** A started request to link another email to a member, kept in this browser until the other sign-in. */
+export type PendingLink = { token: string; name: string; expires: number };
+
+const LINK_KEY = "azo-link-request";
+
+function readPendingLink(): PendingLink | null {
+  try {
+    const link = JSON.parse(localStorage.getItem(LINK_KEY) ?? "null") as PendingLink | null;
+    return link?.token && link.expires > Date.now() ? link : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingLink(link: PendingLink | null) {
+  try {
+    if (link) localStorage.setItem(LINK_KEY, JSON.stringify(link));
+    else localStorage.removeItem(LINK_KEY);
+  } catch {
+    // Storage unavailable: linking can't survive the sign-in, and the profile says so.
+    if (link) throw new Error("This browser can't keep the request while you sign in. Allow site data and try again.");
+  }
+}
+
 /**
  * The session for My account (/account/). Everyone signs in here: members with a code sent to their email, the
  * team (admins, staff, leaders) with the same code or, with an Active Zone Outdoor Workspace account, Google.
@@ -31,6 +55,8 @@ export function useAccountSession() {
   const [member, setMember] = useState<Member | null>(null);
   const [checking, setChecking] = useState(true);
   const [notice, setNotice] = useState("");
+  const [pendingLink, setPendingLink] = useState<PendingLink | null>(null);
+  const [linkResult, setLinkResult] = useState<{ text: string; ok: boolean } | null>(null);
   const [supabase] = useState(() => getSupabaseBrowserClient());
 
   useEffect(() => {
@@ -39,6 +65,7 @@ export function useAccountSession() {
       return;
     }
     let current: string | undefined;
+    setPendingLink(readPendingLink());
 
     const acceptSession = async (next: Session | null) => {
       const key = next?.user.id ?? "";
@@ -54,7 +81,20 @@ export function useAccountSession() {
       setChecking(true);
       try {
         const nextRole = await fetchTeamRole(supabase);
-        const nextMember = await claimMembership(supabase);
+        // Signing in after "Link another email": link this sign-in, then open the account either way.
+        const link = readPendingLink();
+        let nextMember: Member | null = null;
+        if (link) {
+          writePendingLink(null);
+          setPendingLink(null);
+          try {
+            nextMember = await claimMembership(supabase, link.token);
+            setLinkResult({ text: `${next.user.email ?? "This email"} is now linked to your membership. You can sign in with either email.`, ok: true });
+          } catch (err) {
+            setLinkResult({ text: err instanceof Error ? err.message : String(err), ok: false });
+          }
+        }
+        nextMember ??= await claimMembership(supabase);
         setSession(next);
         setRole(nextRole);
         setMember(nextMember);
@@ -111,6 +151,30 @@ export function useAccountSession() {
   }
 
   /**
+   * Starts linking another email: remembers the request in this browser and signs out, so the member signs in with
+   * the other email (or Google account). The next sign-in completes the link.
+   */
+  async function startLinking() {
+    if (!supabase || !member) return;
+    const token = await startAccountLink(supabase);
+    const link = { token, name: member.full_name, expires: Date.now() + 29 * 60 * 1000 };
+    writePendingLink(link);
+    setPendingLink(link);
+    setLinkResult(null);
+    // The sign-out event shows the sign-in form; if signing out fails, clear the session and start afresh.
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (error) {
+      clearStoredSession();
+      window.location.reload();
+    }
+  }
+
+  function cancelLinking() {
+    writePendingLink(null);
+    setPendingLink(null);
+  }
+
+  /**
    * Signs out of this browser. supabase-js keeps the session when its logout request fails,
    * so on an error or a slow response the stored session is cleared directly.
    */
@@ -123,7 +187,10 @@ export function useAccountSession() {
     window.location.replace(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`);
   }
 
-  return { supabase, session, role, member, setMember, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut };
+  return {
+    supabase, session, role, member, setMember, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut,
+    pendingLink, linkResult, clearLinkResult: () => setLinkResult(null), startLinking, cancelLinking,
+  };
 }
 
 function clearStoredSession() {

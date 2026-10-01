@@ -42,6 +42,7 @@ Everything runs on free tiers: the static site on Cloudflare Pages (built by Git
 18. Run `supabase/migrations/20261010000000_members.sql`. It adds member accounts (see **Members** below).
 19. Send sign-in codes through Gmail: `supabase functions deploy auth-email`, then in **Authentication → Hooks → Send Email** choose **HTTPS**, enter `https://<project-ref>.supabase.co/functions/v1/auth-email`, generate the secret and save it with `supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_…"`. Codes then come from the same Workspace sender as booking emails (optional `AUTH_EMAIL_FROM`, e.g. `Active Zone Outdoor <moments@activezoneoutdoor.cy>`; it must be that account or one of its Gmail aliases), in English and Greek. The email templates from step 16 are no longer used.
 20. Run `supabase/migrations/20261011000000_staff_profiles.sql` (or `supabase db push`). Staff and admins then get a profile in My account too.
+21. Run `supabase/migrations/20261012000000_member_accounts.sql`. One member can then have several sign-in emails (see **Members** below). Existing members keep their sign-in.
 
 ## Website and contact form
 
@@ -65,6 +66,10 @@ Anyone can sign in at `/account/` with a code sent to their email (no password);
 - **Yearly fees:** set the fee for each year under **Yearly fees**. Every year from a member's registration onward then shows as *Paid*, *Partly paid* or *Due*.
 - **Payments:** record cash or bank-transfer payments in the member's window (the amount is pre-filled with that year's fee). Members see their years and payment history on `/account/`.
 - **Status:** *Online account* (signed up on the website), *Registered member* (registered with the NGO) or *Former member*.
+- **Several emails, one member:** someone who signs in with more than one email (a personal address and their `@activezoneoutdoor.cy` account, say) gets one record per email at first. Either they link them, or staff merge them:
+  - *Members:* **Profile → Sign-in emails → Link another email** signs them out; they then sign in with the other email or Google account, which proves they own both. If that email already has a record with membership details (status, member number or payments), linking stops and asks the team to merge instead. Members can also remove their other sign-in emails.
+  - *Staff:* open the member to keep and, under **Sign-ins**, choose the duplicate in **Merge it into this one**. Its sign-ins and payments move over and it's deleted; the kept member's details win, empty ones are filled from the duplicate, the earlier registration date and the more established status (registered, then former, then online) are kept. Staff can also unlink a sign-in; its next sign-in then creates a new online account.
+  - The member's **Email** is where we contact them; the emails they sign in with are listed under **Sign-ins**. Team roles follow the sign-in, not the member: a personal email linked to a staff member's record only opens the profile.
 
 Members can change only their name and phone; status, member number, dates and payments are staff-only, enforced by the database (`members` policies and the `guard_member_changes` trigger). Leaders don't see member data. Everyone who signs in has a profile, the team included, so staff and admins appear in the Members list too and can be registered as members like anyone else.
 

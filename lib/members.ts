@@ -1,5 +1,6 @@
 // Member accounts: data access and display helpers shared by the Profile and Members sections of My account (/account/).
-// Row level security decides what each user may read or change (supabase/migrations/20261010000000_members.sql);
+// Row level security decides what each user may read or change (supabase/migrations/20261010000000_members.sql and
+// 20261012000000_member_accounts.sql);
 // nothing here is trusted for access control.
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -8,7 +9,7 @@ export type PaymentMethod = "cash" | "bank_transfer" | "card" | "other";
 
 export type Member = {
   id: string;
-  user_id: string | null;
+  /** Contact email. The emails people sign in with are their sign-ins (member_accounts). */
   email: string | null;
   full_name: string;
   phone: string | null;
@@ -28,6 +29,8 @@ export type Payment = {
   reference: string | null;
 };
 export type Fee = { year: number; amount: number };
+/** A sign-in (Supabase account) linked to a member. */
+export type SignIn = { user_id: string; email: string | null; linked_at: string };
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message || "Something went wrong.");
@@ -39,10 +42,30 @@ const num = (v: unknown) => (v == null ? null : Number(v));
 
 // ---------- Member ----------
 
-/** The signed-in person's member record (team members included), created on first sign-in. */
-export async function claimMembership(supabase: SupabaseClient): Promise<Member | null> {
-  const row = unwrap(await supabase.rpc("claim_membership")) as Member | null;
+/**
+ * The signed-in person's member record (team members included), created on first sign-in. With a link token from
+ * startAccountLink, this sign-in is linked to that member instead; that throws a readable error if it can't be.
+ */
+export async function claimMembership(supabase: SupabaseClient, linkToken?: string): Promise<Member | null> {
+  const row = unwrap(await supabase.rpc("claim_membership", linkToken ? { p_link_token: linkToken } : {})) as Member | null;
   return row?.id ? row : null;
+}
+
+/** Starts linking another email to the signed-in member. The token is valid for 30 minutes, once. */
+export async function startAccountLink(supabase: SupabaseClient): Promise<string> {
+  return unwrap(await supabase.rpc("start_account_link")) as string;
+}
+
+/** The sign-ins linked to a member, oldest first. Members see their own; staff see everyone's. */
+export async function listSignIns(supabase: SupabaseClient, memberId: string): Promise<SignIn[]> {
+  return unwrap(await supabase.from("member_accounts").select("user_id, email, linked_at").eq("member_id", memberId)
+    .order("linked_at")) as SignIn[];
+}
+
+/** Unlinks a sign-in. Its next sign-in then gets a new online member record. */
+export async function unlinkSignIn(supabase: SupabaseClient, userId: string): Promise<void> {
+  const rows = unwrap(await supabase.from("member_accounts").delete().eq("user_id", userId).select("user_id")) as unknown[];
+  if (rows.length === 0) throw new Error("That sign-in couldn't be removed.");
 }
 
 export async function updateProfile(supabase: SupabaseClient, id: string, fields: { full_name: string; phone: string | null }): Promise<Member> {
@@ -72,6 +95,11 @@ export async function listMembers(supabase: SupabaseClient): Promise<Member[]> {
 export async function saveMember(supabase: SupabaseClient, { id, ...fields }: Partial<Member> & { id?: string }): Promise<Member> {
   const query = id ? supabase.from("members").update(fields).eq("id", id) : supabase.from("members").insert(fields);
   return unwrap(await query.select().single()) as Member;
+}
+
+/** Merges `removeId` into `keepId`: sign-ins and payments move over, and `removeId` is deleted. */
+export async function mergeMembers(supabase: SupabaseClient, keepId: string, removeId: string): Promise<Member> {
+  return unwrap(await supabase.rpc("merge_members", { p_keep: keepId, p_remove: removeId })) as Member;
 }
 
 export async function deleteMember(supabase: SupabaseClient, id: string): Promise<void> {
