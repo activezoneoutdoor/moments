@@ -39,7 +39,7 @@ const num = (v: unknown) => (v == null ? null : Number(v));
 
 // ---------- Member ----------
 
-/** The signed-in member's record, created on first sign-in. Null for staff (admin/staff roles). */
+/** The signed-in person's member record (team members included), created on first sign-in. */
 export async function claimMembership(supabase: SupabaseClient): Promise<Member | null> {
   const row = unwrap(await supabase.rpc("claim_membership")) as Member | null;
   return row?.id ? row : null;

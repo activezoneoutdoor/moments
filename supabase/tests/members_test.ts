@@ -62,13 +62,32 @@ Deno.test("sign-in links a member staff registered beforehand with the same emai
   assertEquals(row.user_id, maria.id);
 });
 
-Deno.test("staff accounts are not members", async () => {
+Deno.test("staff sign-in creates their own member record too", async () => {
   const { as } = await setup();
-  const [row] = await as<{ id: string | null }>(
+  await as(maria, "select claim_membership()");
+  const [row] = await as<{ id: string | null; user_id: string; email: string; status: string }>(
     staff,
-    "select (claim_membership()).id",
+    "select * from claim_membership()",
   );
-  assertEquals(row.id, null);
+  assertEquals(row.user_id, staff.id);
+  assertEquals(row.email, staff.email);
+  assertEquals(row.status, "online");
+  // Claiming again returns the same row, and staff still see every member.
+  const [again] = await as<{ id: string }>(staff, "select (claim_membership()).id as id");
+  assertEquals(again.id, row.id);
+  assertEquals((await as(staff, "select * from members")).length, 2);
+});
+
+Deno.test("staff can edit their own profile", async () => {
+  const { as } = await setup();
+  const [row] = await as<{ id: string }>(staff, "select (claim_membership()).id as id");
+  const [updated] = await as<{ full_name: string; phone: string }>(
+    staff,
+    "update members set full_name = 'Achernar', phone = '+357 99 000000' where id = $1 returning full_name, phone",
+    [row.id],
+  );
+  assertEquals(updated.full_name, "Achernar");
+  assertEquals(updated.phone, "+357 99 000000");
 });
 
 Deno.test("anonymous visitors can't read or claim anything", async () => {

@@ -18,8 +18,8 @@ const sectionLabels: Record<Section, string> = { profile: "Profile", events: "Ev
 /** Which sections each person sees (the database enforces the same limits). Members see only their profile. */
 export function sectionsFor(role: TeamRole | null, hasMember: boolean): Section[] {
   const profile: Section[] = hasMember ? ["profile"] : [];
-  if (role === "admin") return ["events", "albums", "members", "users"];
-  if (role === "staff") return ["events", "albums", "members"];
+  if (role === "admin") return [...profile, "events", "albums", "members", "users"];
+  if (role === "staff") return [...profile, "events", "albums", "members"];
   if (role === "leader") return [...profile, "events", "albums"];
   return profile;
 }
@@ -36,14 +36,16 @@ export function AccountSections({ supabase, role, member, email, onMemberSaved }
   onMemberSaved: (member: Member) => void;
 }) {
   const sections = sectionsFor(role, Boolean(member));
-  const [section, setSection] = useState<Section>(sections[0] ?? "profile");
+  // The team starts on Events (their daily work); members on their profile.
+  const start: Section = role ? "events" : sections[0] ?? "profile";
+  const [section, setSection] = useState<Section>(start);
   const [openEventId, setOpenEventId] = useState<string | undefined>();
   const canManage = role === "admin" || role === "staff";
 
   useEffect(() => {
     const fromHash = () => {
       const wanted = window.location.hash.slice(1) as Section;
-      setSection(sections.includes(wanted) ? wanted : sections[0] ?? "profile");
+      setSection(sections.includes(wanted) ? wanted : start);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
