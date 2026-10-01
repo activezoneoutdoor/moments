@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { roleLabels, useAccountSession, workspaceDomain, type TeamRole } from "@/lib/auth";
+import { roleLabels, useAccountSession, workspaceDomain, type PendingLink, type TeamRole } from "@/lib/auth";
 import { AccountSections } from "@/app/components/account/AccountSections";
 import { SiteBehaviour } from "@/app/components/site/SiteBehaviour";
 import { SiteFooter } from "@/app/components/site/SiteFooter";
@@ -19,7 +19,10 @@ const intro: Record<TeamRole, string> = {
  * members (admin, staff, leader) also get the sections their role allows.
  */
 export default function AccountPage() {
-  const { supabase, session, role, member, setMember, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut } = useAccountSession();
+  const {
+    supabase, session, role, member, setMember, checking, notice, signInWithGoogle, sendCode, verifyCode, signOut,
+    pendingLink, linkResult, clearLinkResult, startLinking, cancelLinking,
+  } = useAccountSession();
   const email = session?.user.email ?? "";
   const name = member?.full_name || session?.user.user_metadata.full_name || session?.user.user_metadata.name || "";
   const firstName = String(name).split(" ")[0];
@@ -38,7 +41,8 @@ export default function AccountPage() {
           ) : checking ? (
             <p className="account-loading">Loading…</p>
           ) : !session ? (
-            <SignIn notice={notice} sendCode={sendCode} verifyCode={verifyCode} signInWithGoogle={signInWithGoogle} />
+            <SignIn notice={notice} sendCode={sendCode} verifyCode={verifyCode} signInWithGoogle={signInWithGoogle}
+              pendingLink={pendingLink} cancelLinking={cancelLinking} />
           ) : (
             <>
               <div className="app-head">
@@ -54,10 +58,17 @@ export default function AccountPage() {
                   <button className="btn btn-outline btn-sm" type="button" onClick={signOut}>Sign out</button>
                 </div>
               </div>
+              {linkResult && (
+                <p className={linkResult.ok ? "account-notice" : "account-error"} role="status">
+                  {linkResult.text}{" "}
+                  <button className="link-btn" type="button" onClick={clearLinkResult}>Dismiss</button>
+                </p>
+              )}
               {!role && !member ? (
                 <p className="account-error" role="alert">We couldn&apos;t open your account. Please sign out and try again, or contact us.</p>
               ) : (
-                <AccountSections key={session.user.id} supabase={supabase} role={role} member={member} email={email} onMemberSaved={setMember} />
+                <AccountSections key={session.user.id} supabase={supabase} role={role} member={member} email={email} userId={session.user.id}
+                  onMemberSaved={setMember} onLinkAnother={startLinking} />
               )}
             </>
           )}
@@ -69,8 +80,10 @@ export default function AccountPage() {
   );
 }
 
-function SignIn({ notice, sendCode, verifyCode, signInWithGoogle }: {
+function SignIn({ notice, sendCode, verifyCode, signInWithGoogle, pendingLink, cancelLinking }: {
   notice: string;
+  pendingLink: PendingLink | null;
+  cancelLinking: () => void;
   sendCode: (email: string) => Promise<boolean>;
   verifyCode: (email: string, code: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -94,8 +107,18 @@ function SignIn({ notice, sendCode, verifyCode, signInWithGoogle }: {
   return (
     <section className="auth-card">
       <img src="/assets/img/logo-official-160.png" alt="" width="88" height="88" />
-      <h1>My account</h1>
-      <p>Members and the Active Zone Outdoor team sign in here. Members see their membership and yearly payments; the team manages events, albums and members.</p>
+      <h1>{pendingLink ? "Link another email" : "My account"}</h1>
+      {pendingLink ? (
+        <div className="account-notice">
+          <p>
+            Sign in with the email or Google account you want to link to {pendingLink.name ? <>the membership of <strong>{pendingLink.name}</strong></> : "your membership"}.
+            You can then sign in with either.
+          </p>
+          <button className="link-btn" type="button" onClick={cancelLinking}>Cancel linking</button>
+        </div>
+      ) : (
+        <p>Members and the Active Zone Outdoor team sign in here. Members see their membership and yearly payments; the team manages events, albums and members.</p>
+      )}
       <form className="code-form" onSubmit={submit}>
         {!sent ? (
           <div className="field">

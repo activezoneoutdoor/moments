@@ -50,7 +50,7 @@ Deno.test("sign-in links a member staff registered beforehand with the same emai
       status: string;
       member_number: string;
       full_name: string;
-      user_id: string;
+      id: string;
     }
   >(
     maria,
@@ -59,17 +59,19 @@ Deno.test("sign-in links a member staff registered beforehand with the same emai
   assertEquals(row.status, "registered");
   assertEquals(row.member_number, "AZO-001");
   assertEquals(row.full_name, "Maria Kyriakou"); // staff's name is kept
-  assertEquals(row.user_id, maria.id);
+  const [mine] = await as<{ id: string }>(maria, "select my_member_id() as id");
+  assertEquals(mine.id, row.id);
 });
 
 Deno.test("staff sign-in creates their own member record too", async () => {
   const { as } = await setup();
   await as(maria, "select claim_membership()");
-  const [row] = await as<{ id: string | null; user_id: string; email: string; status: string }>(
+  const [row] = await as<{ id: string; email: string; status: string }>(
     staff,
     "select * from claim_membership()",
   );
-  assertEquals(row.user_id, staff.id);
+  const [mine] = await as<{ id: string }>(staff, "select my_member_id() as id");
+  assertEquals(mine.id, row.id);
   assertEquals(row.email, staff.email);
   assertEquals(row.status, "online");
   // Claiming again returns the same row, and staff still see every member.
@@ -127,7 +129,7 @@ Deno.test("members can edit name and phone but not membership details", async ()
   await as(maria, "select claim_membership()");
   const [row] = await as<{ full_name: string; phone: string }>(
     maria,
-    "update members set full_name = ' Maria K. ', phone = '+357 99 000000' where user_id = auth.uid() returning *",
+    "update members set full_name = ' Maria K. ', phone = '+357 99 000000' where id = my_member_id() returning *",
   );
   assertEquals(row.full_name, "Maria K.");
   assertEquals(row.phone, "+357 99 000000");
@@ -138,11 +140,10 @@ Deno.test("members can edit name and phone but not membership details", async ()
       "member_number = 'X1'",
       "registered_on = '2020-01-01'",
       "email = 'other@gmail.com'",
-      "user_id = null",
     ]
   ) {
     await assertRejects(
-      () => as(maria, `update members set ${change} where user_id = auth.uid()`),
+      () => as(maria, `update members set ${change} where id = my_member_id()`),
       Error,
       "Only staff",
       change,
@@ -169,7 +170,7 @@ Deno.test("members can't touch other members, fees or payments", async () => {
   assertEquals(
     (await as(
       maria,
-      "delete from members where user_id = auth.uid() returning id",
+      "delete from members where id = my_member_id() returning id",
     )).length,
     0,
   );

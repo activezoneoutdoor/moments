@@ -190,6 +190,8 @@ h1,h2,h3,p{margin-top:0}
 .payment-form input,.payment-form select{min-width:0}
 .payment-form .span-3{grid-column:span 3}.payment-form .span-all{grid-column:1/-1;margin:0}
 .fee-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+.merge-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:14px 0 0}.merge-form label{display:flex;flex-direction:column;gap:6px}.merge-form select{min-width:0}
+@media(max-width:560px){.merge-form{grid-template-columns:1fr}}
 .year-chips{list-style:none;padding:0;margin:0 0 6px;display:flex;flex-wrap:wrap;gap:8px}
 .year-chips li{display:grid;gap:4px;justify-items:start;padding:8px 10px;border:1px solid var(--line);border-radius:6px}.year-chips small{font-size:11px;color:var(--muted)}
 .payment-rows{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}

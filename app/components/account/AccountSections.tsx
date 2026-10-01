@@ -28,12 +28,14 @@ export function sectionsFor(role: TeamRole | null, hasMember: boolean): Section[
  * My account's sub-menu and the open section. The section is kept in the address (#events, #albums, …) so it
  * survives a reload. With only one section (a member's profile) there is no sub-menu.
  */
-export function AccountSections({ supabase, role, member, email, onMemberSaved }: {
+export function AccountSections({ supabase, role, member, email, userId, onMemberSaved, onLinkAnother }: {
   supabase: SupabaseClient;
   role: TeamRole | null;
   member: Member | null;
   email: string;
+  userId: string;
   onMemberSaved: (member: Member) => void;
+  onLinkAnother: () => Promise<void>;
 }) {
   const sections = sectionsFor(role, Boolean(member));
   // The team starts on Events (their daily work); members on their profile.
@@ -72,7 +74,7 @@ export function AccountSections({ supabase, role, member, email, onMemberSaved }
           ))}
         </nav>
       )}
-      {section === "profile" && member && <ProfilePanel supabase={supabase} member={member} email={email} onSaved={onMemberSaved} />}
+      {section === "profile" && member && <ProfilePanel supabase={supabase} member={member} email={email} userId={userId} onSaved={onMemberSaved} onLinkAnother={onLinkAnother} />}
       {section !== "profile" && (
         <div className="azo-admin">
           {section === "events" && <Dashboard key={openEventId ?? "events"} supabase={supabase} canManage={canManage} openEventId={openEventId} />}

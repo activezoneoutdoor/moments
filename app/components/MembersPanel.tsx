@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  addPayment, deleteFee, deleteMember, deletePayment, formatDate, listFees, listMembers, membershipYears, methodLabels,
-  money, payments as fetchPayments, saveFee, saveMember, statusLabels, thisYear, today, yearStatus, yearStatusLabels, yearSummary,
-  type Fee, type Member, type MembershipYear, type MemberStatus, type Payment, type PaymentMethod, type YearStatus,
+  addPayment, deleteFee, deleteMember, deletePayment, formatDate, listFees, listMembers, listSignIns, membershipYears, mergeMembers,
+  methodLabels, money, payments as fetchPayments, saveFee, saveMember, statusLabels, thisYear, today, unlinkSignIn, yearStatus,
+  yearStatusLabels, yearSummary, type Fee, type Member, type MembershipYear, type MemberStatus, type Payment, type PaymentMethod,
+  type SignIn, type YearStatus,
 } from "@/lib/members";
 
 const yearPill: Record<YearStatus, string> = { paid: "status-published", partial: "status-draft", due: "status-cancelled", unset: "" };
@@ -111,6 +112,7 @@ export function MembersPanel({ supabase }: { supabase: SupabaseClient }) {
           key={editing === "new" ? "new" : editing.id}
           supabase={supabase}
           member={editing === "new" ? null : editing}
+          members={members}
           fees={fees}
           onClose={() => setEditing(null)}
           onChanged={async (next) => { await refresh(); if (next !== undefined) setEditing(next); }}
@@ -137,9 +139,11 @@ function Dialog({ title, onClose, children, narrow = false }: { title: string; o
   );
 }
 
-function MemberDialog({ supabase, member, fees, onClose, onChanged }: {
+function MemberDialog({ supabase, member, members, fees, onClose, onChanged }: {
   supabase: SupabaseClient;
   member: Member | null;
+  /** Everyone, to pick a duplicate to merge in. */
+  members: Member[];
   fees: Fee[];
   onClose: () => void;
   /** Called after a change; with a member to keep the dialog on it, or null to close. */
@@ -156,15 +160,17 @@ function MemberDialog({ supabase, member, fees, onClose, onChanged }: {
   });
   const [years, setYears] = useState<MembershipYear[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [signIns, setSignIns] = useState<SignIn[]>([]);
+  const [mergeId, setMergeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; warn: boolean } | null>(null);
-  const linked = Boolean(member?.user_id);
 
   const loadPayments = useCallback(async () => {
     if (!member) return;
-    const [y, p] = await Promise.all([membershipYears(supabase, member.id), fetchPayments(supabase, member.id)]);
+    const [y, p, s] = await Promise.all([membershipYears(supabase, member.id), fetchPayments(supabase, member.id), listSignIns(supabase, member.id)]);
     setYears(y);
     setPayments(p);
+    setSignIns(s);
   }, [supabase, member]);
 
   useEffect(() => { void loadPayments(); }, [loadPayments]);
@@ -191,7 +197,7 @@ function MemberDialog({ supabase, member, fees, onClose, onChanged }: {
       const saved = await saveMember(supabase, {
         id: member?.id,
         full_name: form.full_name.trim(),
-        ...(linked ? {} : { email: email || null }),
+        email: email || null,
         phone: form.phone.trim() || null,
         status: form.status,
         member_number: form.member_number.trim() || null,
@@ -204,10 +210,33 @@ function MemberDialog({ supabase, member, fees, onClose, onChanged }: {
   const remove = () => {
     if (!member) return;
     const who = member.full_name || member.email || "this member";
-    if (!window.confirm(linked
+    if (!window.confirm(signIns.length
       ? `Delete ${who}? Their payment records are deleted too. If they sign in again they get a new online account.`
       : `Delete ${who} and their payment records?`)) return;
     void act(async () => { await deleteMember(supabase, member.id); await onChanged(null); }, "Member deleted.");
+  };
+
+  const describe = (m: Member) => [m.full_name || "(no name)", m.email, m.member_number].filter(Boolean).join(" · ");
+  const others = member ? members.filter((m) => m.id !== member.id) : [];
+
+  const merge = () => {
+    const other = others.find((m) => m.id === mergeId);
+    if (!member || !other) return;
+    if (!window.confirm(
+      `Merge “${describe(other)}” into “${describe(member)}”?\n\nIts sign-ins and payments move here and it is deleted. ` +
+      "This member's details are kept; empty ones are filled from the other record. This can't be undone.",
+    )) return;
+    void act(async () => {
+      const kept = await mergeMembers(supabase, member.id, other.id);
+      setMergeId("");
+      await loadPayments();
+      await onChanged(kept);
+    }, "Members merged.");
+  };
+
+  const unlink = (s: SignIn) => {
+    if (!window.confirm(`Unlink ${s.email ?? "this sign-in"}? Their next sign-in with it creates a new online account.`)) return;
+    void act(async () => { await unlinkSignIn(supabase, s.user_id); await loadPayments(); }, "Sign-in unlinked.");
   };
 
   return (
@@ -218,8 +247,8 @@ function MemberDialog({ supabase, member, fees, onClose, onChanged }: {
             <input required maxLength={120} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
           </label>
           <label>Email
-            <input type="email" maxLength={254} value={form.email} readOnly={linked} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <small>{linked ? "Linked to their sign-in." : "They sign in with a code sent to this email."}</small>
+            <input type="email" maxLength={254} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <small>{signIns.length ? "Where we contact them. Their sign-ins are listed below." : "They sign in with a code sent to this email."}</small>
           </label>
           <label>Mobile phone
             <input type="tel" maxLength={30} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -244,6 +273,33 @@ function MemberDialog({ supabase, member, fees, onClose, onChanged }: {
         </div>
       </form>
       {message && <p className={message.warn ? "panel-message warn" : "panel-message"} role="status">{message.text}</p>}
+
+      {member && (
+        <section className="dialog-section">
+          <p className="eyebrow">SIGN-INS</p>
+          {signIns.length ? (
+            <ul className="payment-rows">
+              {signIns.map((s) => (
+                <li key={s.user_id}>
+                  <span>{s.email ?? "Sign-in without email"} · linked {formatDate(s.linked_at)}</span>
+                  <button className="link-button danger-link" disabled={busy} onClick={() => unlink(s)}>Unlink</button>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="form-hint">Not signed in yet.</p>}
+          {others.length > 0 && (
+            <div className="event-form merge-form">
+              <label>Same person as another record? Merge it into this one
+                <select value={mergeId} onChange={(e) => setMergeId(e.target.value)} disabled={busy}>
+                  <option value="">Choose the duplicate…</option>
+                  {others.map((m) => <option key={m.id} value={m.id}>{describe(m)}</option>)}
+                </select>
+              </label>
+              <button className="ghost-button" type="button" disabled={busy || !mergeId} onClick={merge}>Merge into this member</button>
+            </div>
+          )}
+        </section>
+      )}
 
       {member && (
         <section className="dialog-section">

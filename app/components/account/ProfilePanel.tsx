@@ -3,8 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  formatDate, membershipYears, methodLabels, money, payments as fetchPayments, statusLabels, thisYear, updateProfile,
-  yearStatus, yearStatusLabels, type Member, type MembershipYear, type Payment, type YearStatus,
+  formatDate, listSignIns, membershipYears, methodLabels, money, payments as fetchPayments, statusLabels, thisYear, unlinkSignIn,
+  updateProfile, yearStatus, yearStatusLabels, type Member, type MembershipYear, type Payment, type SignIn, type YearStatus,
 } from "@/lib/members";
 
 const yearTone: Record<YearStatus, string> = { paid: "good", partial: "warn", due: "bad", unset: "muted" };
@@ -16,11 +16,14 @@ const explain: Record<Member["status"], string> = {
 };
 
 /** A member's own profile: membership status, editable details and yearly membership payments. */
-export function ProfilePanel({ supabase, member, email, onSaved }: {
+export function ProfilePanel({ supabase, member, email, userId, onSaved, onLinkAnother }: {
   supabase: SupabaseClient;
   member: Member;
   email: string;
+  /** The sign-in in use, which can't be unlinked from here. */
+  userId: string;
   onSaved: (member: Member) => void;
+  onLinkAnother: () => Promise<void>;
 }) {
   const [years, setYears] = useState<MembershipYear[] | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -80,7 +83,7 @@ export function ProfilePanel({ supabase, member, email, onSaved }: {
           <div className="field">
             <label htmlFor="p-email">Email</label>
             <input id="p-email" type="email" readOnly value={member.email ?? email} aria-describedby="p-email-help" />
-            <small id="p-email-help" className="muted">You sign in with this email. Ask us if it needs to change.</small>
+            <small id="p-email-help" className="muted">We contact you at this email. Ask us if it needs to change.</small>
           </div>
           <div className="field">
             <label htmlFor="p-phone">Mobile phone</label>
@@ -90,6 +93,8 @@ export function ProfilePanel({ supabase, member, email, onSaved }: {
           {message && <p className={message.ok ? "form-ok" : "account-error"} role="status">{message.text}</p>}
         </form>
       </section>
+
+      <SignInsPanel supabase={supabase} memberId={member.id} userId={userId} onLinkAnother={onLinkAnother} />
 
       <section className="panel panel-wide" aria-labelledby="payments-title">
         <h2 id="payments-title">Yearly membership payments</h2>
@@ -127,6 +132,71 @@ export function ProfilePanel({ supabase, member, email, onSaved }: {
         )}
       </section>
     </div>
+  );
+}
+
+/** The emails that open this membership, with linking and unlinking. */
+function SignInsPanel({ supabase, memberId, userId, onLinkAnother }: {
+  supabase: SupabaseClient;
+  memberId: string;
+  userId: string;
+  onLinkAnother: () => Promise<void>;
+}) {
+  const [signIns, setSignIns] = useState<SignIn[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    listSignIns(supabase, memberId).then(setSignIns).catch((err: unknown) => {
+      setSignIns([]);
+      setMessage({ text: err instanceof Error ? err.message : String(err), ok: false });
+    });
+  }, [supabase, memberId]);
+
+  const run = async (task: () => Promise<void>) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await task();
+    } catch (err) {
+      setMessage({ text: err instanceof Error ? err.message : String(err), ok: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unlink = (s: SignIn) => {
+    if (!window.confirm(`Remove ${s.email ?? "this sign-in"}? Signing in with it will no longer open this membership.`)) return;
+    void run(async () => {
+      await unlinkSignIn(supabase, s.user_id);
+      setSignIns((list) => list?.filter((x) => x.user_id !== s.user_id) ?? null);
+      setMessage({ text: `${s.email ?? "The sign-in"} was removed.`, ok: true });
+    });
+  };
+
+  return (
+    <section className="panel panel-wide" aria-labelledby="signins-title">
+      <h2 id="signins-title">Sign-in emails</h2>
+      <p className="muted">Any of these opens your membership. Use another email too, such as a work address? Link it so you keep one membership.</p>
+      {signIns === null ? <p className="empty">Loading…</p> : (
+        <ul className="sign-ins">
+          {signIns.map((s) => (
+            <li key={s.user_id}>
+              <span>{s.email ?? "Sign-in without email"}{s.user_id === userId && <span className="muted"> · this sign-in</span>}</span>
+              {s.user_id !== userId && (
+                <button className="link-btn" type="button" disabled={busy} onClick={() => unlink(s)}>Remove</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <button className="btn btn-outline btn-sm" type="button" disabled={busy}
+        onClick={() => void run(onLinkAnother)}>
+        Link another email
+      </button>
+      <p className="muted small">You&apos;ll be signed out and asked to sign in with the other email or Google account. Then either one opens this membership.</p>
+      {message && <p className={message.ok ? "form-ok" : "account-error"} role="status">{message.text}</p>}
+    </section>
   );
 }
 

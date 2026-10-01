@@ -33,9 +33,23 @@ export async function migratedDb(beforeMigrations?: (db: PGlite) => Promise<void
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(SUPABASE_STUBS);
   await beforeMigrations?.(db);
+  await applyMigrations(db);
+  return db;
+}
+
+/** Applies the migrations whose file names sort at or after `from` and before `until` (all by default). */
+export async function applyMigrations(db: PGlite, { from = "", until = "\uffff" } = {}): Promise<void> {
   const files = [];
   for await (const f of Deno.readDir(MIGRATIONS)) if (f.name.endsWith(".sql")) files.push(f.name);
-  for (const name of files.sort()) await db.exec(await Deno.readTextFile(new URL(name, MIGRATIONS)));
+  for (const name of files.sort()) {
+    if (name >= from && name < until) await db.exec(await Deno.readTextFile(new URL(name, MIGRATIONS)));
+  }
+}
+
+/** A database with the Supabase stubs and no migrations, for testing a migration against older data. */
+export async function emptyDb(): Promise<PGlite> {
+  const db = new PGlite({ extensions: { pgcrypto } });
+  await db.exec(SUPABASE_STUBS);
   return db;
 }
 
