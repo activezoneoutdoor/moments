@@ -5,7 +5,7 @@ function allowedOrigins(): string[] {
 
 /**
  * Whether `origin` is in `allowed`. An entry may start its host with `*.` to allow any one subdomain,
- * e.g. `https://*.azo-moments.pages.dev` for the Cloudflare Pages previews of each pull request.
+ * e.g. `https://*.activezoneoutdoor.pages.dev` for the Cloudflare Pages previews of each pull request.
  */
 export function originMatches(origin: string | null, allowed: string[]): origin is string {
   if (!origin) return false;

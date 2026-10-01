@@ -19,7 +19,7 @@ Everything runs on free tiers: the static site on Cloudflare Pages (built by Git
 3. In Supabase **Authentication → URL Configuration**, set the site URL and allow these redirect URLs:
    - `http://localhost:3000/**`
    - `https://www2.activezoneoutdoor.cy/**`
-   - `https://*.azo-moments.pages.dev/**` (pull request previews; use your project's `pages.dev` name, see **Deployment**)
+   - `https://*.activezoneoutdoor.pages.dev/**` (pull request previews; use your project's `pages.dev` name, see **Deployment**)
 
    This is Supabase's allowlist of where sign-in may return to. Everyone signs in on `/account/` and is sent back there.
 4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
@@ -120,7 +120,7 @@ supabase secrets set \
   GOOGLE_OAUTH_CLIENT_SECRET=<client-secret> \
   GOOGLE_OAUTH_REFRESH_TOKEN=<refresh-token> \
   AZO_SHARED_DRIVE_ID=<shared-drive-id> \
-  ALLOWED_ORIGINS=https://www2.activezoneoutdoor.cy,https://*.azo-moments.pages.dev,http://localhost:3000
+  ALLOWED_ORIGINS=https://www2.activezoneoutdoor.cy,https://*.activezoneoutdoor.pages.dev,http://localhost:3000
 supabase functions deploy
 ```
 
@@ -209,7 +209,7 @@ If an upload fails with "Cannot create folders in the Shared Drive" (visible in 
 If an upload fails with "Couldn't reach the upload service", the browser got no answer from `upload-start`:
 - In Supabase, open **Edge Functions → upload-start**: check that it exists and look at its **Logs**.
 - Redeploy with `supabase functions deploy` so `verify_jwt = false` from `supabase/config.toml` applies.
-- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://www2.activezoneoutdoor.cy`, or `https://*.azo-moments.pages.dev` for all previews) to the `ALLOWED_ORIGINS` secret and redeploy.
+- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://www2.activezoneoutdoor.cy`, or `https://*.activezoneoutdoor.pages.dev` for all previews) to the `ALLOWED_ORIGINS` secret and redeploy.
 
 ## Run locally
 
@@ -227,7 +227,7 @@ The workflow in `.github/workflows/deploy.yml` builds the site with GitHub Actio
 | Event | Result |
 | --- | --- |
 | Push to `main` (a merged pull request) | The live site |
-| Pull request opened or updated (not a draft) | A preview at `https://pr-<number>.azo-moments.pages.dev`, linked in a comment on the pull request and updated on every push |
+| Pull request opened or updated (not a draft) | A preview at `https://pr-<number>.activezoneoutdoor.pages.dev`, linked in a comment on the pull request and updated on every push |
 | Pull request merged or closed | Its preview deployments are deleted |
 
 A newer push cancels a build still running for the same pull request or for `main`.
@@ -248,12 +248,12 @@ Previews use the live Supabase project: bookings, uploads and contact messages s
 2. **GitHub secrets and variables.** In the repository, open **Settings → Secrets and variables → Actions**.
    - **Secrets:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
    - **Variables:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the project's URL and publishable/anon key). These two are included in the public website bundle, so they are not secrets. Never put a Supabase service-role key in GitHub or the app.
-   - **Optional variables:** `SITE_URL` (e.g. `https://www2.activezoneoutdoor.cy`), shown as the production link in GitHub; `CLOUDFLARE_PROJECT_NAME` if the project shouldn't be called `azo-moments`.
-3. **First deploy.** Run the workflow from **Actions → Deploy to Cloudflare Pages → Run workflow** on `main`. It creates the Cloudflare Pages project if needed. Its log shows the project's address, e.g. `https://azo-moments.pages.dev`. If Cloudflare added a suffix (`azo-moments-xyz.pages.dev`), use that name instead of `azo-moments.pages.dev` everywhere in this README.
-4. **Allow previews in Supabase.** Add `https://*.azo-moments.pages.dev/**` to **Authentication → URL Configuration → Redirect URLs**, add `https://*.azo-moments.pages.dev` to the `ALLOWED_ORIGINS` secret (see **Edge Functions**), and run `supabase functions deploy`.
+   - **Optional variables:** `SITE_URL` (e.g. `https://www2.activezoneoutdoor.cy`), shown as the production link in GitHub; `CLOUDFLARE_PROJECT_NAME` if the project shouldn't be called `activezoneoutdoor`.
+3. **First deploy.** Run the workflow from **Actions → Deploy to Cloudflare Pages → Run workflow** on `main`. It creates the Cloudflare Pages project if needed. Its log shows the project's address, e.g. `https://activezoneoutdoor.pages.dev`. If Cloudflare added a suffix (`activezoneoutdoor-xyz.pages.dev`), use that name instead of `activezoneoutdoor.pages.dev` everywhere in this README.
+4. **Allow previews in Supabase.** Add `https://*.activezoneoutdoor.pages.dev/**` to **Authentication → URL Configuration → Redirect URLs**, add `https://*.activezoneoutdoor.pages.dev` to the `ALLOWED_ORIGINS` secret (see **Edge Functions**), and run `supabase functions deploy`.
 5. **Keep previews private.** In the Pages project, open **Settings → General** and enable the **access policy** for preview deployments. Then edit that policy in **Zero Trust → Access → Applications** to allow the board members' email addresses. They sign in with a one-time code sent by email; no GitHub or Cloudflare account is needed. Cloudflare Access is free for up to 50 users.
 6. **Require a review before merging.** In GitHub, open **Settings → Rules → Rulesets** and add a rule for `main`: require a pull request with at least one approval, and require the **deploy** status check to pass.
-7. **Custom domain.** In the Pages project, open **Custom domains → Set up a custom domain** and enter the site's address. While the domain's DNS is hosted elsewhere (e.g. Wix), Cloudflare asks for a `CNAME` record pointing to `azo-moments.pages.dev`; once the DNS is on Cloudflare, it's added automatically. When the site loads from Cloudflare, turn off GitHub Pages under **Settings → Pages**.
+7. **Custom domain.** In the Pages project, open **Custom domains → Set up a custom domain** and enter the site's address. While the domain's DNS is hosted elsewhere (e.g. Wix), Cloudflare asks for a `CNAME` record pointing to `activezoneoutdoor.pages.dev`; once the DNS is on Cloudflare, it's added automatically. When the site loads from Cloudflare, turn off GitHub Pages under **Settings → Pages**.
 
 ### Moving to www.activezoneoutdoor.cy
 

@@ -54,14 +54,14 @@ Deno.test("staff-only functions return the real error message", async () => {
 });
 
 Deno.test("origins match exactly, or any one subdomain of a wildcard entry", () => {
-  const allowed = ["https://www2.activezoneoutdoor.cy", "https://*.azo-moments.pages.dev"];
+  const allowed = ["https://www2.activezoneoutdoor.cy", "https://*.activezoneoutdoor.pages.dev"];
   assertEquals(originMatches("https://www2.activezoneoutdoor.cy", allowed), true);
-  assertEquals(originMatches("https://pr-24.azo-moments.pages.dev", allowed), true);
-  assertEquals(originMatches("https://3f2a1b9c.azo-moments.pages.dev", allowed), true);
-  assertEquals(originMatches("https://azo-moments.pages.dev", allowed), false);
-  assertEquals(originMatches("https://a.b.azo-moments.pages.dev", allowed), false);
-  assertEquals(originMatches("https://evil-azo-moments.pages.dev", allowed), false);
-  assertEquals(originMatches("http://pr-24.azo-moments.pages.dev", allowed), false);
+  assertEquals(originMatches("https://pr-24.activezoneoutdoor.pages.dev", allowed), true);
+  assertEquals(originMatches("https://3f2a1b9c.activezoneoutdoor.pages.dev", allowed), true);
+  assertEquals(originMatches("https://activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("https://a.b.activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("https://evil-activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("http://pr-24.activezoneoutdoor.pages.dev", allowed), false);
   assertEquals(originMatches("https://www.activezoneoutdoor.cy", allowed), false);
   assertEquals(originMatches(null, allowed), false);
 });
