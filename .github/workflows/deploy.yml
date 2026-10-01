@@ -1,0 +1,163 @@
+name: Deploy to Cloudflare Pages
+
+# The site is built here and uploaded to Cloudflare Pages ("Direct Upload"), so Cloudflare's
+# monthly build limit doesn't apply.
+#   push to main      → production (the custom domain)
+#   pull request      → preview at https://pr-<number>.<project>.pages.dev, linked in a PR comment
+#   pull request closed → its preview deployments are deleted
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # Explicit bash runs with pipefail, so a failed upload isn't hidden by `| tee`.
+    shell: bash
+
+env:
+  CLOUDFLARE_PROJECT: ${{ vars.CLOUDFLARE_PROJECT_NAME || 'azo-moments' }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  PREVIEW_MARKER: "<!-- cloudflare-preview -->"
+
+jobs:
+  deploy:
+    # Draft PRs get no preview until they're marked ready for review. PRs from forks have no access to the secrets.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action != 'closed' && !github.event.pull_request.draft &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ""
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Create the Cloudflare Pages project if it doesn't exist
+        run: |
+          if ! npx --yes wrangler@4 pages project list | grep -qw -- "$CLOUDFLARE_PROJECT"; then
+            npx --yes wrangler@4 pages project create "$CLOUDFLARE_PROJECT" --production-branch=main
+          fi
+
+      - name: Upload to Cloudflare Pages
+        id: deploy
+        env:
+          BRANCH: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref_name }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.pull_request.title || github.event.head_commit.message || github.ref_name }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          npx --yes wrangler@4 pages deploy out \
+            --project-name="$CLOUDFLARE_PROJECT" \
+            --branch="$BRANCH" \
+            --commit-hash="$COMMIT_SHA" \
+            --commit-message="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)" \
+            --commit-dirty=true | tee deploy.log
+
+          # Wrangler prints this deployment's own URL, e.g. https://3f2a1b9c.azo-moments.pages.dev.
+          # The project's pages.dev name can differ from the project name, so take it from there.
+          deployment_url=$(grep -o 'https://[a-z0-9-]*\.[a-z0-9.-]*\.pages\.dev' deploy.log | head -n 1)
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Couldn't find the deployment URL in wrangler's output."
+            exit 1
+          fi
+          project_host=${deployment_url#https://*.}
+          if [ "$BRANCH" = main ]; then
+            url=${SITE_URL:-https://$project_host}
+          elif [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            url=https://$BRANCH.$project_host
+          else
+            url=$deployment_url
+          fi
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed $deployment_url (live at $url)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Link the preview on the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          URL: ${{ steps.deploy.outputs.url }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          body="$PREVIEW_MARKER
+          ### Preview of this pull request
+
+          **$URL**
+
+          Updated on every push to this pull request. This exact version (commit ${COMMIT_SHA:0:7}): $DEPLOYMENT_URL"
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$PREVIEW_MARKER\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" > /dev/null
+          else
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi
+
+  cleanup:
+    if: >-
+      github.event_name == 'pull_request' && github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete this pull request's preview deployments
+        env:
+          BRANCH: pr-${{ github.event.pull_request.number }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PROJECT/deployments"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+
+          # Collect first, then delete, so deleting doesn't shift the pages being read.
+          ids=""
+          page=1
+          while :; do
+            response=$(curl -fsS -H "$auth" "$api?env=preview&per_page=25&page=$page")
+            [ "$(jq '.result | length' <<< "$response")" -eq 0 ] && break
+            ids+=$'\n'$(jq -r --arg branch "$BRANCH" \
+              '.result[] | select(.deployment_trigger.metadata.branch == $branch) | .id' <<< "$response")
+            page=$((page + 1))
+          done
+
+          for id in $ids; do
+            curl -fsS -X DELETE -H "$auth" "$api/$id?force=true" > /dev/null
+            echo "Deleted deployment $id"
+          done
+          echo "Deleted $(wc -w <<< "$ids") preview deployment(s) of $BRANCH." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mark the preview comment as removed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$PREVIEW_MARKER\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" \
+              -f body="$PREVIEW_MARKER
+          The preview was removed when this pull request was closed." > /dev/null
+          fi

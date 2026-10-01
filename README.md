@@ -2,7 +2,7 @@
 
 The Active Zone Outdoor website, with members' accounts and the team's tools in one place. It lists Active Zone Outdoor events (date, location, leader, partner groups, group size) and collects each event's photos and videos from participants. Staff create an event and share its upload link, for example in the group chat. Participants upload without an account, and the files go straight into an automatically named folder in a Google Workspace Shared Drive, such as `2026/2026-09-27_SUP_Ayia-Napa`. Staff approve or hide uploads and publish the album on the event's public page.
 
-Everything runs on free tiers: the static site on GitHub Pages, data and sign-in on Supabase, and small Supabase Edge Functions that talk to Google Drive. Media never passes through Supabase. It is stored in the Workspace's pooled Drive storage and uploaded from the browser directly to Google.
+Everything runs on free tiers: the static site on Cloudflare Pages (built by GitHub Actions, with a preview of every pull request), data and sign-in on Supabase, and small Supabase Edge Functions that talk to Google Drive. Media never passes through Supabase. It is stored in the Workspace's pooled Drive storage and uploaded from the browser directly to Google.
 
 | Page | Who | Purpose |
 | --- | --- | --- |
@@ -19,6 +19,7 @@ Everything runs on free tiers: the static site on GitHub Pages, data and sign-in
 3. In Supabase **Authentication → URL Configuration**, set the site URL and allow these redirect URLs:
    - `http://localhost:3000/**`
    - `https://www2.activezoneoutdoor.cy/**`
+   - `https://*.azo-moments.pages.dev/**` (pull request previews; use your project's `pages.dev` name, see **Deployment**)
 
    This is Supabase's allowlist of where sign-in may return to. Everyone signs in on `/account/` and is sent back there.
 4. Copy `.env.example` to `.env.local` for local development and fill in the Supabase project URL and publishable/anon key. These browser values are public by design; never use a service-role key here.
@@ -119,9 +120,11 @@ supabase secrets set \
   GOOGLE_OAUTH_CLIENT_SECRET=<client-secret> \
   GOOGLE_OAUTH_REFRESH_TOKEN=<refresh-token> \
   AZO_SHARED_DRIVE_ID=<shared-drive-id> \
-  ALLOWED_ORIGINS=https://www2.activezoneoutdoor.cy,http://localhost:3000
+  ALLOWED_ORIGINS=https://www2.activezoneoutdoor.cy,https://*.azo-moments.pages.dev,http://localhost:3000
 supabase functions deploy
 ```
+
+`ALLOWED_ORIGINS` (and `CONTACT_ALLOWED_ORIGINS`) entries match exactly, except that `https://*.example.com` allows any one subdomain, which is how pull request previews may upload and send the contact form.
 
 `supabase/config.toml` deploys all functions with the gateway's JWT check off (`verify_jwt = false`, the same as `--no-verify-jwt`), so anonymous participants can call the upload functions; each function checks its own access (upload token, or a team role in `staff_roles`). Keep the client secret and refresh token only in Supabase secrets; never commit them. Run `deno test --allow-env --allow-read . ../tests` inside `supabase/functions` for the unit tests; `../tests` runs the database's row level security rules on an in-memory Postgres (PGlite).
 
@@ -206,7 +209,7 @@ If an upload fails with "Cannot create folders in the Shared Drive" (visible in 
 If an upload fails with "Couldn't reach the upload service", the browser got no answer from `upload-start`:
 - In Supabase, open **Edge Functions → upload-start**: check that it exists and look at its **Logs**.
 - Redeploy with `supabase functions deploy` so `verify_jwt = false` from `supabase/config.toml` applies.
-- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://www2.activezoneoutdoor.cy`) to the `ALLOWED_ORIGINS` secret and redeploy.
+- If the error says the website isn't allowed to upload, add that exact address (e.g. `https://www2.activezoneoutdoor.cy`, or `https://*.azo-moments.pages.dev` for all previews) to the `ALLOWED_ORIGINS` secret and redeploy.
 
 ## Run locally
 
@@ -217,19 +220,48 @@ If an upload fails with "Couldn't reach the upload service", the browser got no 
 
 Staff sign in with Google (the app passes `hd=activezoneoutdoor.cy` to guide account selection); leaders with an email code. After sign-in the app asks the database for the account's role (`my_role()`) and shows nothing to accounts without one. That check is only for the interface: the database's Row Level Security policies and the staff functions check `staff_roles` on every request. Supabase Auth's Before User Created hook allows Google sign-ups only for `@activezoneoutdoor.cy` and email-code sign-ups for anyone; an account alone gives no access. Participants never sign in; the upload link token is their only access.
 
-## GitHub Pages deployment
+## Deployment
 
-The workflow in `.github/workflows/pages.yml` builds and deploys this repository to `https://www2.activezoneoutdoor.cy/` whenever a change is pushed to `main`.
+The workflow in `.github/workflows/deploy.yml` builds the site with GitHub Actions and uploads it to Cloudflare Pages with `wrangler pages deploy` (Direct Upload). Building in Actions means Cloudflare's limit of 500 builds a month doesn't apply.
 
-1. **Finish Supabase setup first.** In the Supabase project, enable Google sign-in, apply the workspace signup migration and hook above, and set the production Site URL to `https://www2.activezoneoutdoor.cy/`.
-2. **Allow the sign-in redirect in Supabase.** Under **Authentication → URL Configuration → Redirect URLs**, add `https://www2.activezoneoutdoor.cy/**` (keep `http://localhost:3000/**` there too if you run locally).
-3. **Add the public Supabase browser settings to GitHub.** Open the repository on GitHub, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. Add both:
-   - Name: `NEXT_PUBLIC_SUPABASE_URL` · Value: the Supabase project's URL.
-   - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY` · Value: the project's publishable key (or legacy anon key).
+| Event | Result |
+| --- | --- |
+| Push to `main` (a merged pull request) | The live site |
+| Pull request opened or updated (not a draft) | A preview at `https://pr-<number>.azo-moments.pages.dev`, linked in a comment on the pull request and updated on every push |
+| Pull request merged or closed | Its preview deployments are deleted |
 
-   These two values are included in the public website bundle, so they are not secrets. Keep the Google OAuth client secret in Supabase's Google provider settings. Never put a Supabase service-role key in GitHub variables or the app.
-4. **Enable Pages deployment.** In GitHub, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. Under **Custom domain**, enter `www2.activezoneoutdoor.cy`, and at the DNS provider add a `CNAME` record for `www2` pointing to `<github-owner>.github.io`. Once the DNS check passes, tick **Enforce HTTPS**.
-5. **Commit and push to `main`.** Make sure the commit includes `package-lock.json` and `.github/workflows/pages.yml`. Pushing to `main` starts the deploy automatically.
-6. **Check the result.** In the repository, open **Actions**, select the latest **Deploy to GitHub Pages** run, and wait for both build and deploy jobs to finish successfully. The site will be at [https://www2.activezoneoutdoor.cy/](https://www2.activezoneoutdoor.cy/).
+A newer push cancels a build still running for the same pull request or for `main`.
 
-The workflow uses the custom domain's root path; no `/moments` URL prefix or manual build upload is needed.
+### Releasing a change
+
+1. Make the change on a branch and open a pull request. Open it as a draft while it's still in progress: drafts get no preview.
+2. Mark it **Ready for review**. The preview link appears in a comment on the pull request within a few minutes.
+3. Send the link to the board. Feedback goes in as more pushes to the same branch; the same link shows the latest version.
+4. Once the board agrees, approve and merge. `main` is built and the live site updates within a few minutes.
+5. To undo a release, open the Cloudflare Pages project → **Deployments**, choose an earlier production deployment and **Rollback**, then revert the pull request on GitHub so the next merge doesn't bring the change back.
+
+Previews use the live Supabase project: bookings, uploads and contact messages sent from a preview are real.
+
+### One-time setup
+
+1. **Cloudflare account and API token.** Create a free Cloudflare account. Under **My Profile → API Tokens → Create Token → Custom token**, give it the permission **Account → Cloudflare Pages → Edit** for your account. Copy the token, and copy the **Account ID** from the Workers & Pages overview page.
+2. **GitHub secrets and variables.** In the repository, open **Settings → Secrets and variables → Actions**.
+   - **Secrets:** `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+   - **Variables:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the project's URL and publishable/anon key). These two are included in the public website bundle, so they are not secrets. Never put a Supabase service-role key in GitHub or the app.
+   - **Optional variables:** `SITE_URL` (e.g. `https://www2.activezoneoutdoor.cy`), shown as the production link in GitHub; `CLOUDFLARE_PROJECT_NAME` if the project shouldn't be called `azo-moments`.
+3. **First deploy.** Run the workflow from **Actions → Deploy to Cloudflare Pages → Run workflow** on `main`. It creates the Cloudflare Pages project if needed. Its log shows the project's address, e.g. `https://azo-moments.pages.dev`. If Cloudflare added a suffix (`azo-moments-xyz.pages.dev`), use that name instead of `azo-moments.pages.dev` everywhere in this README.
+4. **Allow previews in Supabase.** Add `https://*.azo-moments.pages.dev/**` to **Authentication → URL Configuration → Redirect URLs**, add `https://*.azo-moments.pages.dev` to the `ALLOWED_ORIGINS` secret (see **Edge Functions**), and run `supabase functions deploy`.
+5. **Keep previews private.** In the Pages project, open **Settings → General** and enable the **access policy** for preview deployments. Then edit that policy in **Zero Trust → Access → Applications** to allow the board members' email addresses. They sign in with a one-time code sent by email; no GitHub or Cloudflare account is needed. Cloudflare Access is free for up to 50 users.
+6. **Require a review before merging.** In GitHub, open **Settings → Rules → Rulesets** and add a rule for `main`: require a pull request with at least one approval, and require the **deploy** status check to pass.
+7. **Custom domain.** In the Pages project, open **Custom domains → Set up a custom domain** and enter the site's address. While the domain's DNS is hosted elsewhere (e.g. Wix), Cloudflare asks for a `CNAME` record pointing to `azo-moments.pages.dev`; once the DNS is on Cloudflare, it's added automatically. When the site loads from Cloudflare, turn off GitHub Pages under **Settings → Pages**.
+
+### Moving to www.activezoneoutdoor.cy
+
+1. **Move DNS to Cloudflare.** Add the domain to Cloudflare. Before changing the nameservers at the registrar, check that the imported records include the Google Workspace email records (`MX`, the SPF and DMARC `TXT` records, and the DKIM record); without them, email stops working.
+2. **Add `www.activezoneoutdoor.cy`** as a custom domain of the Pages project.
+3. **Redirect the old addresses.** Under **Rules → Redirect Rules**, send `activezoneoutdoor.cy` and `www2.activezoneoutdoor.cy` to `https://www.activezoneoutdoor.cy` with a 301, keeping the path and query string. Booking and upload links already emailed (`/booking/?t=…`, `/upload/?t=…`) then keep working.
+4. **Update the site address everywhere:**
+   - Supabase **Authentication → URL Configuration**: the Site URL and the redirect URL `https://www.activezoneoutdoor.cy/**`
+   - Supabase secrets `ALLOWED_ORIGINS` and `SITE_URL`, then `supabase functions deploy`
+   - the defaults in `supabase/functions/_shared/http.ts` and `supabase/functions/send-emails/index.ts`, and this README
+   - the GitHub variable `SITE_URL`

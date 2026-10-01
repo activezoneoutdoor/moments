@@ -1,6 +1,8 @@
 // Contact-form request handling, kept free of Supabase/Gmail specifics so it
 // can be unit tested. index.ts wires in the real dependencies.
 
+import { originMatches } from "../_shared/http.ts";
+
 export const TOPICS = [
   "Joining an activity",
   "Volunteering",
@@ -24,7 +26,7 @@ export interface StoredMessage extends ContactMessage {
 }
 
 export interface Deps {
-  /** Origins allowed to call the function. Empty list allows any origin. */
+  /** Origins allowed to call the function (`https://*.example.com` allows any subdomain). Empty list allows any origin. */
   allowedOrigins: string[];
   /** Number of messages from this IP hash since `since`. */
   countRecent(ipHash: string, since: Date): Promise<number>;
@@ -86,7 +88,7 @@ function corsHeaders(
   origin: string | null,
   allowed: string[],
 ): Record<string, string> {
-  const allowOrigin = allowed.length === 0 ? "*" : origin && allowed.includes(origin) ? origin : "";
+  const allowOrigin = allowed.length === 0 ? "*" : originMatches(origin, allowed) ? origin : "";
   return {
     ...(allowOrigin ? { "Access-Control-Allow-Origin": allowOrigin } : {}),
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -116,7 +118,7 @@ export function createHandler(deps: Deps) {
     }
     if (
       deps.allowedOrigins.length > 0 &&
-      (!origin || !deps.allowedOrigins.includes(origin))
+      !originMatches(origin, deps.allowedOrigins)
     ) {
       return json(403, { ok: false, error: "Origin not allowed." });
     }
