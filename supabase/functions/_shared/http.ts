@@ -3,8 +3,24 @@ function allowedOrigins(): string[] {
     .split(",").map((origin) => origin.trim()).filter(Boolean);
 }
 
+/**
+ * Whether `origin` is in `allowed`. An entry may start its host with `*.` to allow any one subdomain,
+ * e.g. `https://*.activezoneoutdoor.pages.dev` for the Cloudflare Pages previews of each pull request.
+ */
+export function originMatches(origin: string | null, allowed: string[]): origin is string {
+  if (!origin) return false;
+  return allowed.some((entry) => {
+    const wildcard = entry.match(/^(https?:\/\/)\*\.(.+)$/);
+    if (!wildcard) return entry === origin;
+    const [, scheme, suffix] = wildcard;
+    if (!origin.startsWith(scheme) || !origin.endsWith(`.${suffix}`)) return false;
+    const label = origin.slice(scheme.length, origin.length - suffix.length - 1);
+    return /^[a-z0-9-]+$/i.test(label);
+  });
+}
+
 export function isAllowedOrigin(origin: string | null): origin is string {
-  return !!origin && allowedOrigins().includes(origin);
+  return originMatches(origin, allowedOrigins());
 }
 
 // Any site may call these functions: access is by upload token or staff session, never cookies.
