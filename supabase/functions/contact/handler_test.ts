@@ -79,6 +79,14 @@ Deno.test("unknown origin is rejected", async () => {
   assertEquals(saved.length, 0);
 });
 
+Deno.test("a preview subdomain is allowed by a wildcard origin", async () => {
+  const { handler } = setup({ allowedOrigins: [ORIGIN, "https://*.activezoneoutdoor.pages.dev"] });
+  const preview = "https://pr-24.activezoneoutdoor.pages.dev";
+  const res = await handler(post(valid, { origin: preview }));
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("access-control-allow-origin"), preview);
+});
+
 Deno.test("any origin allowed when list is empty", async () => {
   const { handler } = setup({ allowedOrigins: [] });
   const res = await handler(post(valid, { origin: "http://localhost:8000" }));

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { handleJson, HttpError } from "./http.ts";
+import { handleJson, HttpError, originMatches } from "./http.ts";
 
 const post = (body: unknown) => new Request("http://fn/", { method: "POST", body: JSON.stringify(body) });
 
@@ -51,4 +51,17 @@ Deno.test("staff-only functions return the real error message", async () => {
   } finally {
     console.error = quiet;
   }
+});
+
+Deno.test("origins match exactly, or any one subdomain of a wildcard entry", () => {
+  const allowed = ["https://www2.activezoneoutdoor.cy", "https://*.activezoneoutdoor.pages.dev"];
+  assertEquals(originMatches("https://www2.activezoneoutdoor.cy", allowed), true);
+  assertEquals(originMatches("https://pr-24.activezoneoutdoor.pages.dev", allowed), true);
+  assertEquals(originMatches("https://3f2a1b9c.activezoneoutdoor.pages.dev", allowed), true);
+  assertEquals(originMatches("https://activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("https://a.b.activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("https://evil-activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("http://pr-24.activezoneoutdoor.pages.dev", allowed), false);
+  assertEquals(originMatches("https://www.activezoneoutdoor.cy", allowed), false);
+  assertEquals(originMatches(null, allowed), false);
 });
